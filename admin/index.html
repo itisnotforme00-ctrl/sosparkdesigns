@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Admin Login — SoSpark Design</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,700&family=DM+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --cream:#FAFAF7; --cream-2:#F4F2EE; --cream-4:#DDD9D0;
+      --ink:#0F0E0C; --ink-3:#3D3B36; --ink-light:#7A7770;
+      --blue:#2563EB; --blue-dark:#1D4ED8;
+      --glass:rgba(255,253,250,0.78);
+      --glass-border:rgba(255,255,255,0.7);
+      --glass-border-2:rgba(200,197,190,0.4);
+      --glass-shadow:0 20px 60px rgba(15,14,12,0.10), 0 4px 16px rgba(15,14,12,0.06);
+    }
+    *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+    html { font-size:16px; }
+    body {
+      background: var(--cream-2); color: var(--ink); font-family:'DM Sans',sans-serif;
+      min-height:100svh; display:flex; align-items:center; justify-content:center;
+      padding:2rem; position:relative; overflow:hidden;
+    }
+    body::before {
+      content:''; position:fixed; inset:0;
+      background: radial-gradient(ellipse 60% 50% at 20% 30%, rgba(37,99,235,0.10) 0%, transparent 65%),
+                  radial-gradient(ellipse 50% 60% at 80% 70%, rgba(184,151,58,0.06) 0%, transparent 65%);
+      pointer-events:none; animation: bgDrift 14s ease-in-out infinite alternate;
+    }
+    @keyframes bgDrift { 0%{transform:scale(1) translate(0,0)} 100%{transform:scale(1.05) translate(-1%,1%)} }
+
+    .deco-ring { position:fixed; border-radius:50%; pointer-events:none; z-index:0; }
+    .deco-ring--1 { width:500px; height:500px; border:1px solid rgba(15,14,12,0.05); top:-100px; right:-80px; animation:spinSlow 80s linear infinite; }
+    .deco-ring--2 { width:280px; height:280px; border:1px solid rgba(37,99,235,0.10); bottom:-60px; left:-60px; animation:spinSlow 55s linear infinite reverse; }
+    @keyframes spinSlow { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+
+    .login-card {
+      position:relative; z-index:1; width:100%; max-width:430px;
+      background:var(--glass); backdrop-filter:blur(24px) saturate(180%); -webkit-backdrop-filter:blur(24px) saturate(180%);
+      border:1px solid var(--glass-border); border-radius:28px; padding:2.5rem;
+      box-shadow:var(--glass-shadow); animation: cardIn 0.6s cubic-bezier(0.16,1,0.3,1) both;
+    }
+    @keyframes cardIn { from{opacity:0;transform:translateY(20px) scale(0.97)} to{opacity:1;transform:none} }
+
+    .login-logo { display:flex; align-items:center; margin-bottom:2rem; }
+    .login-logo img { height:42px; width:auto; }
+
+    .login-heading { font-family:'Playfair Display',serif; font-weight:700; font-size:1.75rem; letter-spacing:-0.03em; margin-bottom:0.4rem; }
+    .login-sub { font-size:0.875rem; color:var(--ink-light); margin-bottom:1.5rem; }
+
+    /* Default credentials notice */
+    .creds-notice {
+      background: rgba(37,99,235,0.06); border:1px solid rgba(37,99,235,0.18);
+      border-radius:14px; padding:14px 16px; margin-bottom:1.5rem;
+      font-size:0.8rem; color:var(--ink-3); line-height:1.6;
+    }
+    .creds-notice strong { color:var(--ink); font-family:'Space Grotesk',sans-serif; }
+    .creds-notice code {
+      background: rgba(37,99,235,0.1); padding:1px 6px; border-radius:5px;
+      font-family: monospace; font-size:0.78rem; color:var(--blue-dark);
+    }
+
+    .login-form { display:flex; flex-direction:column; gap:1rem; }
+    .form-field { display:flex; flex-direction:column; gap:0.4rem; }
+    .form-label { font-family:'Space Grotesk',sans-serif; font-size:0.72rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--ink-light); }
+    .form-input {
+      background: rgba(237,233,225,0.65); border:1px solid var(--glass-border-2); border-radius:12px;
+      padding:12px 14px; font-size:0.9375rem; color:var(--ink); outline:none;
+      transition: border-color 250ms ease, box-shadow 250ms ease;
+    }
+    .form-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
+    .form-input::placeholder { color: var(--ink-light); }
+
+    .login-btn {
+      margin-top:0.5rem; padding:13px; background:var(--ink); color:var(--cream);
+      border:none; border-radius:999px; font-family:'Space Grotesk',sans-serif;
+      font-weight:600; font-size:0.9375rem; cursor:pointer; position:relative; overflow:hidden;
+      transition: background 250ms ease, transform 150ms ease, box-shadow 250ms ease;
+    }
+    .login-btn:hover { background: var(--blue); transform:translateY(-1px); box-shadow:0 8px 24px rgba(37,99,235,0.25); }
+    .login-btn:active { transform:translateY(0) scale(0.98); }
+    .login-btn:disabled { opacity:0.55; cursor:not-allowed; transform:none; }
+
+    .login-error {
+      margin-top:0.75rem; padding:10px 14px; background:rgba(239,68,68,0.08);
+      border:1px solid rgba(239,68,68,0.25); border-radius:10px;
+      font-size:0.875rem; color:#dc2626; display:none;
+    }
+    .login-error.show { display:block; }
+
+    .btn-spinner {
+      display:inline-block; width:14px; height:14px;
+      border:2px solid rgba(255,255,255,0.4); border-top-color:#fff;
+      border-radius:50%; animation:spin 0.7s linear infinite;
+      vertical-align:middle; margin-right:6px;
+    }
+    @keyframes spin { to{transform:rotate(360deg)} }
+
+    .quick-fill {
+      margin-top:1.25rem; text-align:center;
+    }
+    .quick-fill button {
+      background:none; border:none; color:var(--blue); font-size:0.8rem;
+      cursor:pointer; text-decoration:underline; text-underline-offset:2px;
+      font-family:'DM Sans',sans-serif;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="deco-ring deco-ring--1" aria-hidden="true"></div>
+  <div class="deco-ring deco-ring--2" aria-hidden="true"></div>
+
+  <div class="login-card" role="main">
+    <div class="login-logo">
+      <img src="../frontend/assets/logo-dark.svg" alt="SoSpark Design" />
+    </div>
+
+    <h1 class="login-heading">Admin Login</h1>
+    <p class="login-sub">Authorised access only.</p>
+
+    <div class="creds-notice">
+      <strong>Default login</strong><br />
+      Username: <code>admin</code> &nbsp;·&nbsp; Password: <code>soaspark2024</code><br />
+      This account is auto-created on first server start. Change it after logging in.
+    </div>
+
+    <form class="login-form" id="login-form" novalidate>
+      <div class="form-field">
+        <label class="form-label" for="username">Username</label>
+        <input type="text" id="username" class="form-input" placeholder="admin" autocomplete="username" required autofocus />
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="password">Password</label>
+        <input type="password" id="password" class="form-input" placeholder="••••••••••" autocomplete="current-password" required />
+      </div>
+      <button type="submit" class="login-btn" id="submit-btn">Sign In</button>
+      <div class="login-error" id="error-msg" role="alert"></div>
+    </form>
+
+    <div class="quick-fill">
+      <button type="button" id="quick-fill-btn">Fill default credentials</button>
+    </div>
+  </div>
+
+  <script>
+    if (localStorage.getItem('ss_token')) window.location.href = '/admin/dashboard.html';
+
+    const form   = document.getElementById('login-form');
+    const btn    = document.getElementById('submit-btn');
+    const errMsg = document.getElementById('error-msg');
+
+    document.getElementById('quick-fill-btn').addEventListener('click', () => {
+      document.getElementById('username').value = 'admin';
+      document.getElementById('password').value = 'soaspark2024';
+    });
+
+    form.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      errMsg.classList.remove('show');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="btn-spinner"></span>Signing in…';
+
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+
+      if (!username || !password) { showError('Please enter both username and password.'); return; }
+
+      try {
+        const res  = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+        });
+        const data = await res.json();
+
+        if (res.ok && data.token) {
+          localStorage.setItem('ss_token', data.token);
+          localStorage.setItem('ss_username', data.username);
+          window.location.href = '/admin/dashboard.html';
+        } else {
+          showError(data.error || 'Invalid credentials.');
+        }
+      } catch {
+        showError('Could not connect to server. Is it running?');
+      }
+    });
+
+    function showError(msg) {
+      errMsg.textContent = msg;
+      errMsg.classList.add('show');
+      btn.disabled = false;
+      btn.innerHTML = 'Sign In';
+    }
+  </script>
+</body>
+</html>

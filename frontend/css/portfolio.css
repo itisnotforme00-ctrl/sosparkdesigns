@@ -1,0 +1,124 @@
+/* ============================================
+   SoSpark Design v3 — Portfolio Page
+   ============================================ */
+
+.portfolio-hero {
+  min-height: 50svh; display: flex; align-items: flex-end;
+  padding-top: calc(var(--nav-h) + var(--sp-16)); padding-bottom: var(--sp-16);
+  border-bottom: 1px solid var(--cream-4); position: relative; overflow: hidden;
+}
+.portfolio-hero__glow {
+  position: absolute; width: 600px; height: 600px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(37,99,235,0.08) 0%, transparent 70%);
+  filter: blur(80px); top: -150px; right: -100px;
+  animation: blobFloat1 20s ease-in-out infinite; pointer-events: none;
+}
+.portfolio-hero__title { font-size: var(--text-5xl); font-weight: 900; letter-spacing: -0.04em; line-height: 0.95; margin-top: var(--sp-5); max-width: 14ch; }
+
+/* Filter bar */
+.portfolio-filters {
+  display: flex; gap: var(--sp-3); flex-wrap: wrap; margin-top: var(--sp-10);
+}
+.filter-btn {
+  padding: var(--sp-3) var(--sp-6);
+  background: var(--glass-bg); backdrop-filter: var(--blur-sm); -webkit-backdrop-filter: var(--blur-sm);
+  border: 1px solid var(--glass-border-2); border-radius: var(--r-pill);
+  font-family: var(--font-ui); font-size: var(--text-sm); font-weight: 600; color: var(--ink-3);
+  transition: all var(--dur-base) var(--ease-out);
+}
+.filter-btn:hover { border-color: var(--blue); color: var(--blue); }
+.filter-btn.active { background: var(--blue); border-color: var(--blue); color: #fff; }
+
+/* Grid */
+.portfolio-grid-section { padding-block: var(--section-gap); }
+.portfolio-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-5);
+}
+
+.pf-card {
+  border-radius: var(--r-lg); overflow: hidden; position: relative;
+  aspect-ratio: 4/5; cursor: none;
+  background: var(--cream-3);
+  transition: transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base);
+  display: block;
+}
+.pf-card:hover { transform: translateY(-8px); box-shadow: var(--glass-shadow-blue); }
+
+.pf-card__bg {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-size: 5rem; font-weight: 900;
+  color: var(--blue); opacity: 0.08;
+  transition: transform var(--dur-slow) var(--ease-out), opacity var(--dur-base);
+}
+.pf-card:hover .pf-card__bg { transform: scale(1.08); opacity: 0.12; }
+
+/* Persistent ambient motion inside each card */
+.pf-card__shimmer {
+  position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(135deg, transparent 30%, rgba(37,99,235,0.06) 50%, transparent 70%);
+  background-size: 200% 200%;
+  animation: shimmerDiag 6s ease-in-out infinite;
+}
+@keyframes shimmerDiag { 0%,100%{background-position:0% 0%} 50%{background-position:100% 100%} }
+
+.pf-card__overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(15,14,12,0.85) 0%, rgba(15,14,12,0.1) 50%, transparent 70%);
+  opacity: 0; transition: opacity var(--dur-base) var(--ease-out);
+}
+.pf-card:hover .pf-card__overlay { opacity: 1; }
+
+.pf-card__info {
+  position: absolute; bottom: 0; left: 0; right: 0; padding: var(--sp-6);
+  transform: translateY(10px); opacity: 0;
+  transition: transform var(--dur-base) var(--ease-out), opacity var(--dur-base);
+}
+.pf-card:hover .pf-card__info { transform: none; opacity: 1; }
+
+.pf-card__cat { font-family: var(--font-ui); font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--blue-light); margin-bottom: var(--sp-2); }
+.pf-card__title { font-family: var(--font-display); font-size: var(--text-xl); font-weight: 700; color: #fff; letter-spacing: -0.02em; margin-bottom: var(--sp-2); }
+.pf-card__client { font-size: var(--text-xs); color: rgba(255,255,255,0.55); }
+
+.pf-card__view {
+  position: absolute; top: var(--sp-5); right: var(--sp-5);
+  width: 40px; height: 40px; border-radius: 50%;
+  background: rgba(255,255,255,0.15); backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center; color: #fff;
+  opacity: 0; transform: scale(0.7) rotate(-30deg);
+  transition: opacity var(--dur-base), transform var(--dur-base) var(--ease-spring);
+}
+.pf-card:hover .pf-card__view { opacity: 1; transform: none; }
+
+/* Tag badge always visible top-left (not just on hover) — fixes "broken/dead" feel */
+.pf-card__tag-badge {
+  position: absolute; top: var(--sp-5); left: var(--sp-5); z-index: 2;
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--glass-bg-strong); backdrop-filter: var(--blur-sm);
+  border: 1px solid var(--glass-border); border-radius: var(--r-pill);
+  font-family: var(--font-ui); font-size: 10px; font-weight: 600; color: var(--ink-3);
+}
+
+/* Case study detail blocks (anchored sections) */
+.case-study { padding-block: var(--sp-24); border-top: 1px solid var(--cream-4); scroll-margin-top: var(--nav-h); }
+.case-study:nth-child(even) { background: var(--cream-2); }
+.case-study__inner { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-16); align-items: center; }
+.case-study__visual {
+  aspect-ratio: 4/3; border-radius: var(--r-lg); background: var(--cream-3);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-size: 6rem; font-weight: 900; color: var(--blue); opacity: 0.1;
+  border: 1px solid var(--glass-border-2);
+}
+.case-study__tag { font-family: var(--font-ui); font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--blue); margin-bottom: var(--sp-4); }
+.case-study__title { font-size: var(--text-3xl); font-weight: 900; letter-spacing: -0.04em; margin-bottom: var(--sp-5); }
+.case-study__desc { font-size: var(--text-base); color: var(--ink-3); line-height: 1.75; margin-bottom: var(--sp-6); }
+.case-study__meta { display: flex; gap: var(--sp-8); flex-wrap: wrap; }
+.case-study__meta-item dt { font-family: var(--font-ui); font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-light); margin-bottom: var(--sp-1); }
+.case-study__meta-item dd { font-family: var(--font-display); font-size: var(--text-lg); font-weight: 700; color: var(--ink); }
+
+@media (max-width: 1024px) { .portfolio-grid { grid-template-columns: repeat(2,1fr); } }
+@media (max-width: 768px) {
+  .case-study__inner { grid-template-columns: 1fr; gap: var(--sp-8); }
+  .portfolio-hero__title { font-size: var(--text-4xl); }
+}
+@media (max-width: 600px) { .portfolio-grid { grid-template-columns: 1fr; } }

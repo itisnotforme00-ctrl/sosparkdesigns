@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Dashboard — SoSpark Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --cream:#FAFAF7; --ink:#1A1714; --ink-2:#2D2926; --ink-3:#4A4540;
+      --ink-light:#8A8480; --coral:#2563EB; --gold:#C9973A;
+      --glass:rgba(255,253,250,0.75); --glass-border:rgba(255,255,255,0.65);
+      --glass-border-2:rgba(200,195,188,0.4);
+      --bg:#F5F3EF; --sidebar-bg:rgba(26,23,20,0.97);
+      --sidebar-w:248px;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html{font-size:16px;}
+    body{
+      background:var(--bg);color:var(--ink);
+      font-family:'DM Sans',sans-serif;font-size:14px;
+      display:flex;min-height:100svh;overflow-x:hidden;
+    }
+
+    /* ── Sidebar ── */
+    .adm-sidebar{
+      width:var(--sidebar-w);flex-shrink:0;
+      background:var(--sidebar-bg);
+      position:fixed;left:0;top:0;bottom:0;z-index:100;
+      display:flex;flex-direction:column;
+      overflow-y:auto;
+    }
+
+    .adm-sidebar__logo{
+      display:flex;align-items:center;gap:10px;
+      padding:20px 18px 16px;
+      border-bottom:1px solid rgba(255,255,255,0.07);
+    }
+
+    .adm-sidebar__logo img{height:28px;width:auto;}
+
+    .adm-sidebar__logo-text{
+      font-family:'Playfair Display',serif;font-weight:700;
+      font-size:1rem;color:#FAFAF7;letter-spacing:-0.02em;
+    }
+
+    .adm-sidebar__section-label{
+      font-family:'Space Grotesk',sans-serif;
+      font-size:10px;font-weight:600;letter-spacing:0.14em;
+      text-transform:uppercase;color:rgba(255,255,255,0.25);
+      padding:16px 18px 6px;
+    }
+
+    .adm-sidebar__nav{display:flex;flex-direction:column;gap:2px;padding:0 8px;}
+
+    .adm-nav-btn{
+      display:flex;align-items:center;gap:10px;
+      padding:9px 12px;border-radius:10px;
+      background:none;border:none;
+      color:rgba(255,255,255,0.45);
+      font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;
+      cursor:pointer;width:100%;text-align:left;
+      transition:background 200ms,color 200ms;
+    }
+
+    .adm-nav-btn:hover{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.9);}
+    .adm-nav-btn.active{background:rgba(37,99,235,0.15);color:#2563EB;}
+    .adm-nav-btn .icon{font-size:14px;width:18px;text-align:center;flex-shrink:0;}
+
+    .adm-sidebar__footer{
+      margin-top:auto;padding:12px;
+      border-top:1px solid rgba(255,255,255,0.07);
+    }
+
+    .adm-logout{
+      width:100%;padding:9px;
+      background:rgba(239,68,68,0.1);
+      border:1px solid rgba(239,68,68,0.2);
+      border-radius:8px;
+      color:#fca5a5;font-size:12px;font-weight:500;
+      cursor:pointer;font-family:'DM Sans',sans-serif;
+      transition:background 200ms;
+    }
+
+    .adm-logout:hover{background:rgba(239,68,68,0.2);}
+
+    /* DB status pill in sidebar */
+    .adm-db-status{
+      margin:8px;padding:8px 12px;
+      border-radius:8px;
+      font-size:11px;font-weight:500;
+      display:flex;align-items:center;gap:6px;
+      background:rgba(255,255,255,0.04);
+      border:1px solid rgba(255,255,255,0.07);
+      color:rgba(255,255,255,0.4);
+    }
+
+    .adm-db-dot{
+      width:7px;height:7px;border-radius:50%;
+      background:#525252;flex-shrink:0;
+    }
+
+    .adm-db-dot--connected{background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,0.5);}
+    .adm-db-dot--disconnected{background:#ef4444;}
+
+    /* ── Main ── */
+    .adm-main{
+      margin-left:var(--sidebar-w);flex:1;
+      display:flex;flex-direction:column;min-height:100svh;
+    }
+
+    .adm-topbar{
+      height:56px;
+      display:flex;align-items:center;justify-content:space-between;
+      padding:0 24px;
+      background:rgba(255,253,250,0.88);
+      backdrop-filter:blur(16px);
+      -webkit-backdrop-filter:blur(16px);
+      border-bottom:1px solid var(--glass-border-2);
+      position:sticky;top:0;z-index:50;gap:12px;
+    }
+
+    .adm-topbar__title{
+      font-family:'Playfair Display',serif;font-weight:700;
+      font-size:1.1rem;letter-spacing:-0.02em;color:var(--ink);
+    }
+
+    .adm-topbar__user{
+      display:flex;align-items:center;gap:8px;
+      font-size:12px;color:var(--ink-light);
+    }
+
+    .adm-topbar__badge{
+      padding:3px 10px;
+      background:rgba(37,99,235,0.1);
+      border:1px solid rgba(37,99,235,0.2);
+      border-radius:999px;font-size:11px;color:var(--coral);
+      font-family:'Space Grotesk',sans-serif;font-weight:600;
+    }
+
+    /* ── Content ── */
+    .adm-content{flex:1;padding:24px;}
+
+    /* DB alert banner */
+    .adm-alert{
+      padding:14px 18px;border-radius:12px;
+      margin-bottom:20px;font-size:13px;font-weight:500;
+      display:flex;align-items:flex-start;gap:10px;
+    }
+
+    .adm-alert--error{
+      background:rgba(239,68,68,0.08);
+      border:1px solid rgba(239,68,68,0.2);
+      color:#dc2626;
+    }
+
+    .adm-alert--warning{
+      background:rgba(201,151,58,0.1);
+      border:1px solid rgba(201,151,58,0.25);
+      color:#92400e;
+    }
+
+    .adm-alert--success{
+      background:rgba(34,197,94,0.08);
+      border:1px solid rgba(34,197,94,0.2);
+      color:#166534;
+    }
+
+    /* ── Stats ── */
+    .adm-stats{
+      display:grid;grid-template-columns:repeat(4,1fr);
+      gap:12px;margin-bottom:20px;
+    }
+
+    .adm-stat{
+      background:var(--glass);
+      backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+      border:1px solid var(--glass-border);
+      border-radius:16px;padding:16px 18px;
+      box-shadow:0 4px 16px rgba(26,23,20,0.06);
+    }
+
+    .adm-stat__num{
+      font-family:'Playfair Display',serif;font-weight:700;
+      font-size:1.75rem;letter-spacing:-0.03em;color:var(--ink);line-height:1;
+    }
+
+    .adm-stat__label{font-size:11px;color:var(--ink-light);margin-top:4px;font-weight:500;}
+
+    /* ── Table card ── */
+    .adm-card{
+      background:var(--glass);
+      backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+      border:1px solid var(--glass-border);
+      border-radius:16px;overflow:hidden;
+      box-shadow:0 4px 16px rgba(26,23,20,0.06);
+    }
+
+    .adm-card__header{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:14px 18px;border-bottom:1px solid var(--glass-border-2);gap:12px;
+    }
+
+    .adm-card__title{
+      font-family:'Space Grotesk',sans-serif;font-weight:600;
+      font-size:0.875rem;color:var(--ink);
+    }
+
+    .adm-btn-add{
+      display:flex;align-items:center;gap:5px;
+      padding:7px 14px;
+      background:var(--ink);color:var(--cream);
+      border:none;border-radius:999px;
+      font-size:12px;font-weight:600;cursor:pointer;
+      font-family:'Space Grotesk',sans-serif;
+      transition:background 200ms,transform 150ms;
+    }
+
+    .adm-btn-add:hover{background:var(--coral);transform:scale(1.02);}
+
+    table{width:100%;border-collapse:collapse;}
+    thead tr{border-bottom:1px solid var(--glass-border-2);}
+    th{
+      padding:10px 18px;text-align:left;
+      font-family:'Space Grotesk',sans-serif;
+      font-size:11px;font-weight:600;letter-spacing:0.08em;
+      text-transform:uppercase;color:var(--ink-light);
+    }
+    td{
+      padding:12px 18px;border-bottom:1px solid rgba(200,195,188,0.2);
+      font-size:13px;color:var(--ink-3);vertical-align:middle;
+    }
+    tr:last-child td{border-bottom:none;}
+    tr:hover td{background:rgba(37,99,235,0.03);}
+    .td-main{color:var(--ink);font-weight:500;}
+
+    .badge{
+      display:inline-block;padding:2px 10px;border-radius:999px;
+      font-size:11px;font-weight:600;font-family:'Space Grotesk',sans-serif;
+    }
+    .badge--blue{background:rgba(37,99,235,0.08);color:#2563eb;}
+    .badge--green{background:rgba(34,197,94,0.1);color:#166534;}
+    .badge--red{background:rgba(239,68,68,0.1);color:#dc2626;}
+    .badge--coral{background:rgba(37,99,235,0.1);color:var(--coral);}
+
+    .row-actions{display:flex;gap:5px;}
+
+    .btn-edit,.btn-del{
+      padding:5px 10px;border-radius:6px;
+      font-size:11px;font-weight:500;border:none;
+      cursor:pointer;font-family:'DM Sans',sans-serif;transition:opacity 200ms;
+    }
+    .btn-edit{background:rgba(26,23,20,0.07);color:var(--ink);}
+    .btn-edit:hover{opacity:0.7;}
+    .btn-del{background:rgba(239,68,68,0.1);color:#dc2626;}
+    .btn-del:hover{opacity:0.7;}
+
+    .adm-empty{padding:40px;text-align:center;color:var(--ink-light);}
+    .adm-loading{padding:40px;text-align:center;color:var(--ink-light);font-style:italic;}
+
+    /* ── Modal ── */
+    .adm-modal-overlay{
+      position:fixed;inset:0;
+      background:rgba(26,23,20,0.45);
+      backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+      z-index:1000;display:none;align-items:center;justify-content:center;padding:24px;
+    }
+    .adm-modal-overlay.open{display:flex;}
+
+    .adm-modal{
+      background:rgba(255,253,250,0.95);
+      backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+      border:1px solid var(--glass-border);
+      border-radius:20px;
+      width:100%;max-width:520px;max-height:90svh;
+      overflow-y:auto;
+      box-shadow:0 24px 80px rgba(26,23,20,0.15);
+      animation:modalIn 250ms cubic-bezier(0.16,1,0.3,1);
+    }
+    @keyframes modalIn{from{opacity:0;transform:translateY(12px) scale(0.97);}to{opacity:1;transform:none;}}
+
+    .adm-modal__header{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:16px 20px;border-bottom:1px solid var(--glass-border-2);
+    }
+    .adm-modal__title{
+      font-family:'Playfair Display',serif;font-weight:700;
+      font-size:1.1rem;color:var(--ink);
+    }
+    .adm-modal__close{
+      background:none;border:none;color:var(--ink-light);
+      font-size:20px;cursor:pointer;line-height:1;transition:color 200ms;
+    }
+    .adm-modal__close:hover{color:var(--ink);}
+    .adm-modal__body{padding:20px;display:flex;flex-direction:column;gap:14px;}
+    .adm-modal__footer{
+      padding:14px 20px;border-top:1px solid var(--glass-border-2);
+      display:flex;justify-content:flex-end;gap:8px;
+    }
+
+    .adm-field{display:flex;flex-direction:column;gap:5px;}
+    .adm-label{
+      font-family:'Space Grotesk',sans-serif;
+      font-size:11px;font-weight:600;letter-spacing:0.08em;
+      text-transform:uppercase;color:var(--ink-light);
+    }
+    .adm-input,.adm-textarea,.adm-select{
+      background:rgba(237,233,225,0.7);
+      border:1px solid var(--glass-border-2);
+      border-radius:10px;padding:10px 12px;
+      font-size:13px;color:var(--ink);
+      font-family:'DM Sans',sans-serif;outline:none;
+      transition:border-color 200ms;
+    }
+    .adm-input:focus,.adm-textarea:focus,.adm-select:focus{border-color:var(--coral);}
+    .adm-textarea{resize:vertical;min-height:90px;}
+
+    .btn-save{
+      padding:9px 20px;background:var(--ink);color:var(--cream);
+      border:none;border-radius:999px;font-size:13px;font-weight:600;
+      cursor:pointer;font-family:'Space Grotesk',sans-serif;
+      transition:background 200ms;
+    }
+    .btn-save:hover{background:var(--coral);}
+    .btn-cancel{
+      padding:9px 16px;
+      background:rgba(26,23,20,0.06);color:var(--ink-3);
+      border:1px solid var(--glass-border-2);border-radius:999px;
+      font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;
+    }
+
+    /* ── Toast ── */
+    .adm-toast{
+      position:fixed;bottom:24px;right:24px;
+      padding:12px 18px;border-radius:12px;
+      font-size:13px;font-weight:500;z-index:9999;
+      animation:toastIn 300ms cubic-bezier(0.16,1,0.3,1);
+      pointer-events:none;
+      backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    }
+    .adm-toast--success{
+      background:rgba(255,253,250,0.92);color:#166534;
+      border:1px solid rgba(34,197,94,0.3);
+      box-shadow:0 8px 24px rgba(26,23,20,0.1);
+    }
+    .adm-toast--error{
+      background:rgba(255,253,250,0.92);color:#dc2626;
+      border:1px solid rgba(239,68,68,0.3);
+      box-shadow:0 8px 24px rgba(26,23,20,0.1);
+    }
+    @keyframes toastIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+
+    @media(max-width:900px){
+      .adm-sidebar{transform:translateX(-100%);transition:transform 300ms;}
+      .adm-main{margin-left:0;}
+      .adm-stats{grid-template-columns:repeat(2,1fr);}
+    }
+  </style>
+</head>
+<body>
+
+<aside class="adm-sidebar" id="sidebar">
+  <div class="adm-sidebar__logo">
+    <img src="../frontend/assets/logo-white.svg" alt="SoSpark" />
+    <span class="adm-sidebar__logo-text">SoSpark</span>
+  </div>
+
+  <!-- DB status -->
+  <div class="adm-db-status" id="db-status-pill">
+    <div class="adm-db-dot" id="db-dot"></div>
+    <span id="db-label">Checking DB…</span>
+  </div>
+
+  <div class="adm-sidebar__section-label">Content</div>
+  <nav class="adm-sidebar__nav">
+    <button class="adm-nav-btn active" data-section="overview"><span class="icon">◈</span>Overview</button>
+    <button class="adm-nav-btn" data-section="portfolio"><span class="icon">⬡</span>Portfolio</button>
+    <button class="adm-nav-btn" data-section="services"><span class="icon">✦</span>Services</button>
+    <button class="adm-nav-btn" data-section="team"><span class="icon">◉</span>Team</button>
+    <button class="adm-nav-btn" data-section="testimonials"><span class="icon">★</span>Testimonials</button>
+    <button class="adm-nav-btn" data-section="faq"><span class="icon">?</span>FAQ</button>
+    <button class="adm-nav-btn" data-section="offers"><span class="icon">⚡</span>Offers</button>
+    <button class="adm-nav-btn" data-section="messages"><span class="icon">✉</span>Messages</button>
+  </nav>
+
+  <div class="adm-sidebar__footer">
+    <button class="adm-logout" id="logout-btn">Sign Out</button>
+  </div>
+</aside>
+
+<main class="adm-main">
+  <div class="adm-topbar">
+    <span class="adm-topbar__title" id="page-title">Overview</span>
+    <div class="adm-topbar__user">
+      <span id="admin-username"></span>
+      <span class="adm-topbar__badge">Admin</span>
+    </div>
+  </div>
+
+  <div class="adm-content" id="adm-content">
+    <div class="adm-loading">Initialising dashboard…</div>
+  </div>
+</main>
+
+<!-- Modal -->
+<div class="adm-modal-overlay" id="modal-overlay">
+  <div class="adm-modal">
+    <div class="adm-modal__header">
+      <h3 class="adm-modal__title" id="modal-title">Edit</h3>
+      <button class="adm-modal__close" id="modal-close">&times;</button>
+    </div>
+    <div class="adm-modal__body" id="modal-body"></div>
+    <div class="adm-modal__footer">
+      <button class="btn-cancel" id="modal-cancel">Cancel</button>
+      <button class="btn-save"   id="modal-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────
+// SoSpark Admin v2 — Dashboard Script
+// ─────────────────────────────────────
+
+const TOKEN = localStorage.getItem('ss_token');
+if (!TOKEN) window.location.href = '/admin/index.html';
+
+document.getElementById('admin-username').textContent = localStorage.getItem('ss_username') || 'admin';
+
+// ── DB health check ──
+async function checkDB() {
+  try {
+    const res  = await fetch('/api/health');
+    const data = await res.json();
+    const dot  = document.getElementById('db-dot');
+    const lbl  = document.getElementById('db-label');
+    if (data.dbState === 1) {
+      dot.classList.add('adm-db-dot--connected');
+      lbl.textContent = 'DB Connected';
+    } else {
+      dot.classList.add('adm-db-dot--disconnected');
+      lbl.textContent = 'DB ' + (data.db || 'disconnected');
+    }
+    return data.dbState === 1;
+  } catch {
+    document.getElementById('db-dot').classList.add('adm-db-dot--disconnected');
+    document.getElementById('db-label').textContent = 'DB unreachable';
+    return false;
+  }
+}
+
+// ── API helper ──
+function api(path, opts = {}) {
+  return fetch('/api' + path, {
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + TOKEN },
+    ...opts,
+  }).then(async r => {
+    if (r.status === 401) { localStorage.clear(); window.location.href = '/admin/index.html'; }
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Request failed');
+    return d;
+  });
+}
+
+// ── Toast ──
+function toast(msg, type = 'success') {
+  const t = document.createElement('div');
+  t.className = 'adm-toast adm-toast--' + type;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
+
+// ── Modal ──
+const overlay    = document.getElementById('modal-overlay');
+const modalTitle = document.getElementById('modal-title');
+const modalBody  = document.getElementById('modal-body');
+const modalSave  = document.getElementById('modal-save');
+
+function openModal(title, bodyHTML, onSave) {
+  modalTitle.textContent = title;
+  modalBody.innerHTML = bodyHTML;
+  overlay.classList.add('open');
+  modalSave.onclick = onSave;
+  const first = modalBody.querySelector('input,textarea,select');
+  if (first) setTimeout(() => first.focus(), 100);
+}
+function closeModal() { overlay.classList.remove('open'); }
+document.getElementById('modal-close').onclick = closeModal;
+document.getElementById('modal-cancel').onclick = closeModal;
+overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+
+// ── Content area ──
+const content   = document.getElementById('adm-content');
+const pageTitle = document.getElementById('page-title');
+
+function setSection(sec) {
+  document.querySelectorAll('.adm-nav-btn').forEach(b => b.classList.toggle('active', b.dataset.section === sec));
+  pageTitle.textContent = sec.charAt(0).toUpperCase() + sec.slice(1);
+  sections[sec]?.();
+}
+
+// ── DB error banner helper ──
+function dbBanner() {
+  return `<div class="adm-alert adm-alert--error">⚠️ Database is not connected. Content cannot be loaded. Check your MONGODB_URI in .env and restart the server. See the server console for details.</div>`;
+}
+
+// ── Overview ──
+async function renderOverview() {
+  content.innerHTML = '<div class="adm-loading">Loading stats…</div>';
+  const dbOk = await checkDB();
+  if (!dbOk) { content.innerHTML = dbBanner() + '<div class="adm-loading">Cannot load stats — database offline.</div>'; return; }
+  try {
+    const [portfolio, msgs, testimonials, faqs] = await Promise.all([
+      api('/portfolio'), api('/contact'), api('/testimonials'), api('/faq'),
+    ]);
+    content.innerHTML = `
+      <div class="adm-stats">
+        <div class="adm-stat"><div class="adm-stat__num">${portfolio.length}</div><div class="adm-stat__label">Portfolio Projects</div></div>
+        <div class="adm-stat"><div class="adm-stat__num" style="color:var(--coral)">${msgs.filter(m=>!m.read).length}</div><div class="adm-stat__label">Unread Messages</div></div>
+        <div class="adm-stat"><div class="adm-stat__num">${testimonials.length}</div><div class="adm-stat__label">Testimonials</div></div>
+        <div class="adm-stat"><div class="adm-stat__num">${faqs.length}</div><div class="adm-stat__label">FAQ Entries</div></div>
+      </div>
+      <div class="adm-card">
+        <div class="adm-card__header"><span class="adm-card__title">Recent Messages</span></div>
+        <table>
+          <thead><tr><th>Name</th><th>Email</th><th>Service</th><th>Status</th><th>Date</th></tr></thead>
+          <tbody>${msgs.slice(0,8).map(m=>`<tr>
+            <td class="td-main">${esc(m.name)}</td>
+            <td>${esc(m.email)}</td>
+            <td>${esc(m.service||'—')}</td>
+            <td><span class="badge ${m.read?'badge--green':'badge--coral'}">${m.read?'Read':'New'}</span></td>
+            <td>${new Date(m.createdAt).toLocaleDateString()}</td>
+          </tr>`).join('')}</tbody>
+        </table>
+      </div>`;
+  } catch(e) { content.innerHTML = dbBanner(); }
+}
+
+// ── Portfolio ──
+async function renderPortfolio() {
+  content.innerHTML = '<div class="adm-loading">Loading…</div>';
+  const dbOk = await checkDB();
+  if (!dbOk) { content.innerHTML = dbBanner(); return; }
+  try {
+    const items = await api('/portfolio');
+    content.innerHTML = `
+      <div class="adm-card">
+        <div class="adm-card__header">
+          <span class="adm-card__title">Portfolio (${items.length})</span>
+          <button class="adm-btn-add" id="add-p">+ Add Project</button>
+        </div>
+        <table>
+          <thead><tr><th>Title</th><th>Category</th><th>Client</th><th>Year</th><th>Featured</th><th>Actions</th></tr></thead>
+          <tbody>${items.length ? items.map(p=>`<tr>
+            <td class="td-main">${esc(p.title)}</td>
+            <td><span class="badge badge--blue">${esc(p.category)}</span></td>
+            <td>${esc(p.client||'—')}</td>
+            <td>${p.year||'—'}</td>
+            <td>${p.featured?'✓':'—'}</td>
+            <td><div class="row-actions">
+              <button class="btn-edit" data-id="${p._id}">Edit</button>
+              <button class="btn-del"  data-id="${p._id}">Delete</button>
+            </div></td>
+          </tr>`).join('') : '<tr><td colspan="6"><div class="adm-empty">No projects yet</div></td></tr>'}</tbody>
+        </table>
+      </div>`;
+    document.getElementById('add-p')?.addEventListener('click', () => portfolioModal(null));
+    content.querySelectorAll('.btn-edit').forEach(b => b.addEventListener('click', () => portfolioModal(b.dataset.id, items.find(x=>x._id===b.dataset.id))));
+    content.querySelectorAll('.btn-del').forEach(b  => b.addEventListener('click', () => del('/portfolio/'+b.dataset.id, renderPortfolio)));
+  } catch(e) { content.innerHTML = dbBanner(); }
+}
+
+function portfolioModal(id, d={}) {
+  const cats = ['Branding','Web Design','Web Development','Graphic Design','Video','Page Management'];
+  openModal(id?'Edit Project':'New Project', `
+    <div class="adm-field"><label class="adm-label">Title *</label><input class="adm-input" id="f-title" value="${esc(d.title||'')}" /></div>
+    <div class="adm-field"><label class="adm-label">Slug *</label><input class="adm-input" id="f-slug" value="${esc(d.slug||'')}" placeholder="project-slug" /></div>
+    <div class="adm-field"><label class="adm-label">Category *</label>
+      <select class="adm-select" id="f-cat">${cats.map(c=>`<option value="${c}" ${d.category===c?'selected':''}>${c}</option>`).join('')}</select></div>
+    <div class="adm-field"><label class="adm-label">Client</label><input class="adm-input" id="f-client" value="${esc(d.client||'')}" /></div>
+    <div class="adm-field"><label class="adm-label">Year</label><input class="adm-input" type="number" id="f-year" value="${d.year||new Date().getFullYear()}" /></div>
+    <div class="adm-field"><label class="adm-label">Description *</label><textarea class="adm-textarea" id="f-desc">${esc(d.description||'')}</textarea></div>
+    <div class="adm-field"><label class="adm-label">Tags (comma separated)</label><input class="adm-input" id="f-tags" value="${(d.tags||[]).join(', ')}" /></div>
+    <div class="adm-field" style="flex-direction:row;align-items:center;gap:8px;">
+      <input type="checkbox" id="f-featured" ${d.featured?'checked':''} style="width:16px;height:16px;" />
+      <label class="adm-label" for="f-featured" style="text-transform:none;font-size:13px;margin:0">Featured project</label>
+    </div>
+  `, async () => {
+    const payload = { title:v('f-title'), slug:v('f-slug'), category:v('f-cat'), client:v('f-client'),
+      year:parseInt(v('f-year'))||new Date().getFullYear(), description:v('f-desc'),
+      featured:document.getElementById('f-featured').checked,
+      tags:v('f-tags').split(',').map(t=>t.trim()).filter(Boolean) };
+    try {
+      id ? await api('/portfolio/'+id,{method:'PUT', body:JSON.stringify(payload)})
+          : await api('/portfolio',   {method:'POST',body:JSON.stringify(payload)});
+      toast(id?'Project updated':'Project created'); closeModal(); renderPortfolio();
+    } catch(e) { toast(e.message,'error'); }
+  });
+}
+
+// ── Messages ──
+async function renderMessages() {
+  content.innerHTML = '<div class="adm-loading">Loading…</div>';
+  const dbOk = await checkDB();
+  if (!dbOk) { content.innerHTML = dbBanner(); return; }
+  try {
+    const msgs = await api('/contact');
+    content.innerHTML = `
+      <div class="adm-card">
+        <div class="adm-card__header"><span class="adm-card__title">Messages (${msgs.length})</span></div>
+        <table>
+          <thead><tr><th>Name</th><th>Email</th><th>Service</th><th>Budget</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+          <tbody>${msgs.length ? msgs.map(m=>`<tr>
+            <td class="td-main">${esc(m.name)}</td>
+            <td>${esc(m.email)}</td>
+            <td>${esc(m.service||'—')}</td>
+            <td>${esc(m.budget||'—')}</td>
+            <td>
+              <span class="badge ${m.read?'badge--green':'badge--coral'}">${m.read?'Read':'New'}</span>
+              ${m.replied?'<span class="badge badge--green" style="margin-left:3px">Replied</span>':''}
+            </td>
+            <td>${new Date(m.createdAt).toLocaleDateString()}</td>
+            <td><div class="row-actions">
+              <button class="btn-edit" data-id="${m._id}">View</button>
+              <button class="btn-del"  data-id="${m._id}">Delete</button>
+            </div></td>
+          </tr>`).join('') : '<tr><td colspan="7"><div class="adm-empty">No messages yet</div></td></tr>'}</tbody>
+        </table>
+      </div>`;
+    content.querySelectorAll('.btn-edit').forEach(b => {
+      const m = msgs.find(x=>x._id===b.dataset.id);
+      b.addEventListener('click', () => {
+        openModal('Message from '+m.name, `
+          <p style="font-size:13px;color:var(--ink-3)"><strong style="color:var(--ink)">${esc(m.email)}</strong>${m.company?' · '+esc(m.company):''}</p>
+          <p style="font-size:13px;color:var(--ink-3);margin-top:4px">Service: ${esc(m.service||'—')} · Budget: ${esc(m.budget||'—')}</p>
+          <div style="background:rgba(237,233,225,0.7);padding:14px;border-radius:10px;margin-top:12px;font-size:13px;color:var(--ink-3);line-height:1.6">${esc(m.message)}</div>
+          <div style="display:flex;gap:8px;margin-top:14px">
+            <button class="btn-save" onclick="markMsg('${m._id}',{read:true,replied:false})">Mark Read</button>
+            <button class="btn-save" onclick="markMsg('${m._id}',{read:true,replied:true})">Mark Replied</button>
+          </div>`, () => closeModal());
+        api('/contact/'+m._id,{method:'PATCH',body:JSON.stringify({read:true})}).catch(()=>{});
+      });
+    });
+    content.querySelectorAll('.btn-del').forEach(b => b.addEventListener('click', () => del('/contact/'+b.dataset.id, renderMessages)));
+  } catch(e) { content.innerHTML = dbBanner(); }
+}
+
+window.markMsg = async (id, data) => {
+  try { await api('/contact/'+id,{method:'PATCH',body:JSON.stringify(data)}); toast('Updated'); closeModal(); renderMessages(); }
+  catch(e) { toast(e.message,'error'); }
+};
+
+// ── Testimonials ──
+async function renderTestimonials() {
+  content.innerHTML = '<div class="adm-loading">Loading…</div>';
+  const dbOk = await checkDB();
+  if (!dbOk) { content.innerHTML = dbBanner(); return; }
+  try {
+    const items = await api('/testimonials');
+    content.innerHTML = `
+      <div class="adm-card">
+        <div class="adm-card__header">
+          <span class="adm-card__title">Testimonials (${items.length})</span>
+          <button class="adm-btn-add" id="add-t">+ Add</button>
+        </div>
+        <table>
+          <thead><tr><th>Name</th><th>Role</th><th>Rating</th><th>Featured</th><th>Actions</th></tr></thead>
+          <tbody>${items.length ? items.map(t=>`<tr>
+            <td class="td-main">${esc(t.name)}</td>
+            <td>${esc(t.role)}</td>
+            <td>${'★'.repeat(t.rating||5)}</td>
+            <td>${t.featured?'✓':'—'}</td>
+            <td><div class="row-actions">
+              <button class="btn-edit" data-id="${t._id}">Edit</button>
+              <button class="btn-del"  data-id="${t._id}">Delete</button>
+            </div></td>
+          </tr>`).join('') : '<tr><td colspan="5"><div class="adm-empty">No testimonials</div></td></tr>'}</tbody>
+        </table>
+      </div>`;
+    document.getElementById('add-t')?.addEventListener('click', () => testimonialModal(null));
+    content.querySelectorAll('.btn-edit').forEach(b => b.addEventListener('click', () => testimonialModal(b.dataset.id, items.find(x=>x._id===b.dataset.id))));
+    content.querySelectorAll('.btn-del').forEach(b  => b.addEventListener('click', () => del('/testimonials/'+b.dataset.id, renderTestimonials)));
+  } catch(e) { content.innerHTML = dbBanner(); }
+}
+
+function testimonialModal(id, d={}) {
+  openModal(id?'Edit Testimonial':'New Testimonial', `
+    <div class="adm-field"><label class="adm-label">Name *</label><input class="adm-input" id="f-name" value="${esc(d.name||'')}" /></div>
+    <div class="adm-field"><label class="adm-label">Role *</label><input class="adm-input" id="f-role" value="${esc(d.role||'')}" /></div>
+    <div class="adm-field"><label class="adm-label">Company</label><input class="adm-input" id="f-co" value="${esc(d.company||'')}" /></div>
+    <div class="adm-field"><label class="adm-label">Initials (e.g. RH)</label><input class="adm-input" id="f-init" value="${esc(d.initials||'')}" maxlength="3" /></div>
+    <div class="adm-field"><label class="adm-label">Rating (1–5)</label><input class="adm-input" type="number" id="f-rating" min="1" max="5" value="${d.rating||5}" /></div>
+    <div class="adm-field"><label class="adm-label">Text *</label><textarea class="adm-textarea" id="f-text">${esc(d.text||'')}</textarea></div>
+    <div class="adm-field" style="flex-direction:row;align-items:center;gap:8px;">
+      <input type="checkbox" id="f-feat" ${d.featured?'checked':''} style="width:16px;height:16px;" />
+      <label class="adm-label" for="f-feat" style="text-transform:none;font-size:13px;margin:0">Featured</label>
+    </div>
+  `, async () => {
+    const payload = { name:v('f-name'),role:v('f-role'),company:v('f-co'),initials:v('f-init'),
+      rating:parseInt(v('f-rating'))||5, text:v('f-text'), featured:document.getElementById('f-feat').checked };
+    try {
+      id ? await api('/testimonials/'+id,{method:'PUT', body:JSON.stringify(payload)})
+          : await api('/testimonials',   {method:'POST',body:JSON.stringify(payload)});
+      toast(id?'Updated':'Created'); closeModal(); renderTestimonials();
+    } catch(e) { toast(e.message,'error'); }
+  });
+}
+
+// ── FAQ ──
+async function renderFAQ() {
+  content.innerHTML = '<div class="adm-loading">Loading…</div>';
+  const dbOk = await checkDB();
+  if (!dbOk) { content.innerHTML = dbBanner(); return; }
+  try {
+    const items = await api('/faq');
+    content.innerHTML = `
+      <div class="adm-card">
+        <div class="adm-card__header">
+          <span class="adm-card__title">FAQ (${items.length})</span>
+          <button class="adm-btn-add" id="add-faq">+ Add FAQ</button>
+        </div>
+        <table>
+          <thead><tr><th>Question</th><th>Category</th><th>Order</th><th>Actions</th></tr></thead>
+          <tbody>${items.length ? items.map(f=>`<tr>
+            <td class="td-main" style="max-width:320px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(f.question)}</td>
+            <td>${esc(f.category||'General')}</td>
+            <td>${f.order}</td>
+            <td><div class="row-actions">
+              <button class="btn-edit" data-id="${f._id}">Edit</button>
+              <button class="btn-del"  data-id="${f._id}">Delete</button>
+            </div></td>
+          </tr>`).join('') : '<tr><td colspan="4"><div class="adm-empty">No FAQs</div></td></tr>'}</tbody>
+        </table>
+      </div>`;
+    document.getElementById('add-faq')?.addEventListener('click', () => faqModal(null));
+    content.querySelectorAll('.btn-edit').forEach(b => b.addEventListener('click', () => faqModal(b.dataset.id, items.find(x=>x._id===b.dataset.id))));
+    content.querySelectorAll('.btn-del').forEach(b  => b.addEventListener('click', () => del('/faq/'+b.dataset.id, renderFAQ)));
+  } catch(e) { content.innerHTML = dbBanner(); }
+}
+
+function faqModal(id, d={}) {
+  openModal(id?'Edit FAQ':'New FAQ', `
+    <div class="adm-field"><label class="adm-label">Question *</label><input class="adm-input" id="f-q" value="${esc(d.question||'')}" /></div>
+    <div class="adm-field"><label class="adm-label">Answer *</label><textarea class="adm-textarea" id="f-a">${esc(d.answer||'')}</textarea></div>
+    <div class="adm-field"><label class="adm-label">Category</label><input class="adm-input" id="f-cat" value="${esc(d.category||'General')}" /></div>
+    <div class="adm-field"><label class="adm-label">Order</label><input class="adm-input" type="number" id="f-ord" value="${d.order||0}" /></div>
+  `, async () => {
+    const payload = { question:v('f-q'),answer:v('f-a'),category:v('f-cat'),order:parseInt(v('f-ord'))||0 };
+    try {
+      id ? await api('/faq/'+id,{method:'PUT', body:JSON.stringify(payload)})
+          : await api('/faq',   {method:'POST',body:JSON.stringify(payload)});
+      toast(id?'Updated':'Created'); closeModal(); renderFAQ();
+    } catch(e) { toast(e.message,'error'); }
+  });
+}
+
+// ── Offers ──
+async function renderOffers() {
+  content.innerHTML = '<div class="adm-loading">Loading…</div>';
+  const dbOk = await checkDB();
+  if (!dbOk) { content.innerHTML = dbBanner(); return; }
+  try {
+    const items = await api('/offers');
+    content.innerHTML = `
+      <div class="adm-card">
+        <div class="adm-card__header">
+          <span class="adm-card__title">Offers (${items.length})</span>
+          <button class="adm-btn-add" id="add-offer">+ Add Offer</button>
+        </div>
+        <table>
+          <thead><tr><th>Title</th><th>Badge</th><th>Expires</th><th>Actions</th></tr></thead>
+          <tbody>${items.length ? items.map(o=>`<tr>
+            <td class="td-main">${esc(o.title)}</td>
+            <td><span class="badge badge--coral">${esc(o.badge)}</span></td>
+            <td>${o.expiresAt ? new Date(o.expiresAt).toLocaleDateString() : 'Never'}</td>
+            <td><div class="row-actions">
+              <button class="btn-edit" data-id="${o._id}">Edit</button>
+              <button class="btn-del"  data-id="${o._id}">Delete</button>
+            </div></td>
+          </tr>`).join('') : '<tr><td colspan="4"><div class="adm-empty">No offers</div></td></tr>'}</tbody>
+        </table>
+      </div>`;
+    document.getElementById('add-offer')?.addEventListener('click', () => offerModal(null));
+    content.querySelectorAll('.btn-edit').forEach(b => b.addEventListener('click', () => offerModal(b.dataset.id, items.find(x=>x._id===b.dataset.id))));
+    content.querySelectorAll('.btn-del').forEach(b  => b.addEventListener('click', () => del('/offers/'+b.dataset.id, renderOffers)));
+  } catch(e) { content.innerHTML = dbBanner(); }
+}
+
+function offerModal(id, d={}) {
+  openModal(id?'Edit Offer':'New Offer', `
+    <div class="adm-field"><label class="adm-label">Title *</label><input class="adm-input" id="f-title" value="${esc(d.title||'')}" /></div>
+    <div class="adm-field"><label class="adm-label">Description *</label><textarea class="adm-textarea" id="f-desc">${esc(d.description||'')}</textarea></div>
+    <div class="adm-field"><label class="adm-label">Badge</label><input class="adm-input" id="f-badge" value="${esc(d.badge||'Limited')}" /></div>
+    <div class="adm-field"><label class="adm-label">Expires (optional)</label><input class="adm-input" type="date" id="f-exp" value="${d.expiresAt?d.expiresAt.slice(0,10):''}" /></div>
+  `, async () => {
+    const payload = { title:v('f-title'),description:v('f-desc'),badge:v('f-badge')||'Limited',expiresAt:v('f-exp')||null };
+    try {
+      id ? await api('/offers/'+id,{method:'PUT', body:JSON.stringify(payload)})
+          : await api('/offers',   {method:'POST',body:JSON.stringify(payload)});
+      toast(id?'Updated':'Created'); closeModal(); renderOffers();
+    } catch(e) { toast(e.message,'error'); }
+  });
+}
+
+// ── Services & Team (simplified) ──
+async function renderServices() {
+  content.innerHTML = '<div class="adm-loading">Loading…</div>';
+  const dbOk = await checkDB();
+  if (!dbOk) { content.innerHTML = dbBanner(); return; }
+  try {
+    const items = await api('/services');
+    content.innerHTML = `
+      <div class="adm-card">
+        <div class="adm-card__header"><span class="adm-card__title">Services (${items.length})</span></div>
+        <table><thead><tr><th>Title</th><th>Slug</th><th>Order</th><th>Active</th></tr></thead>
+        <tbody>${items.length ? items.map(s=>`<tr>
+          <td class="td-main">${esc(s.title)}</td>
+          <td>${esc(s.slug)}</td>
+          <td>${s.order}</td>
+          <td><span class="badge ${s.active?'badge--green':'badge--red'}">${s.active?'Active':'Hidden'}</span></td>
+        </tr>`).join('') : '<tr><td colspan="4"><div class="adm-empty">No services in DB — currently using static HTML</div></td></tr>'}</tbody>
+        </table>
+      </div>`;
+  } catch(e) { content.innerHTML = dbBanner(); }
+}
+
+async function renderTeam() {
+  content.innerHTML = '<div class="adm-loading">Loading…</div>';
+  const dbOk = await checkDB();
+  if (!dbOk) { content.innerHTML = dbBanner(); return; }
+  try {
+    const items = await api('/team');
+    content.innerHTML = `
+      <div class="adm-card">
+        <div class="adm-card__header">
+          <span class="adm-card__title">Team (${items.length})</span>
+          <button class="adm-btn-add" id="add-tm">+ Add Member</button>
+        </div>
+        <table><thead><tr><th>Name</th><th>Role</th><th>Order</th><th>Actions</th></tr></thead>
+        <tbody>${items.length ? items.map(t=>`<tr>
+          <td class="td-main">${esc(t.name)}</td>
+          <td>${esc(t.role)}</td>
+          <td>${t.order}</td>
+          <td><div class="row-actions">
+            <button class="btn-edit" data-id="${t._id}">Edit</button>
+            <button class="btn-del"  data-id="${t._id}">Delete</button>
+          </div></td>
+        </tr>`).join('') : '<tr><td colspan="4"><div class="adm-empty">No members</div></td></tr>'}</tbody>
+        </table>
+      </div>`;
+    document.getElementById('add-tm')?.addEventListener('click', () => teamModal(null));
+    content.querySelectorAll('.btn-edit').forEach(b => b.addEventListener('click', () => teamModal(b.dataset.id, items.find(x=>x._id===b.dataset.id))));
+    content.querySelectorAll('.btn-del').forEach(b  => b.addEventListener('click', () => del('/team/'+b.dataset.id, renderTeam)));
+  } catch(e) { content.innerHTML = dbBanner(); }
+}
+
+function teamModal(id, d={}) {
+  openModal(id?'Edit Member':'New Member', `
+    <div class="adm-field"><label class="adm-label">Name *</label><input class="adm-input" id="f-name" value="${esc(d.name||'')}" /></div>
+    <div class="adm-field"><label class="adm-label">Role *</label><input class="adm-input" id="f-role" value="${esc(d.role||'')}" /></div>
+    <div class="adm-field"><label class="adm-label">Bio *</label><textarea class="adm-textarea" id="f-bio">${esc(d.bio||'')}</textarea></div>
+    <div class="adm-field"><label class="adm-label">Order</label><input class="adm-input" type="number" id="f-ord" value="${d.order||0}" /></div>
+  `, async () => {
+    const payload = { name:v('f-name'),role:v('f-role'),bio:v('f-bio'),order:parseInt(v('f-ord'))||0 };
+    try {
+      id ? await api('/team/'+id,{method:'PUT', body:JSON.stringify(payload)})
+          : await api('/team',   {method:'POST',body:JSON.stringify(payload)});
+      toast(id?'Updated':'Created'); closeModal(); renderTeam();
+    } catch(e) { toast(e.message,'error'); }
+  });
+}
+
+// ── Delete helper ──
+async function del(path, refresh) {
+  if (!confirm('Delete this item? Cannot be undone.')) return;
+  try { await api(path,{method:'DELETE'}); toast('Deleted'); refresh(); }
+  catch(e) { toast(e.message,'error'); }
+}
+
+// ── Utilities ──
+function v(id) { return (document.getElementById(id)?.value||'').trim(); }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── Sections map ──
+const sections = {
+  overview:     renderOverview,
+  portfolio:    renderPortfolio,
+  services:     renderServices,
+  team:         renderTeam,
+  testimonials: renderTestimonials,
+  faq:          renderFAQ,
+  offers:       renderOffers,
+  messages:     renderMessages,
+};
+
+// ── Nav ──
+document.querySelectorAll('.adm-nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => setSection(btn.dataset.section));
+});
+
+// ── Logout ──
+document.getElementById('logout-btn').addEventListener('click', () => {
+  localStorage.clear();
+  window.location.href = '/admin/index.html';
+});
+
+// ── Init ──
+checkDB();
+renderOverview();
+</script>
+</body>
+</html>
