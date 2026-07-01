@@ -1,0 +1,24 @@
+# ── Secrets — never commit these ──
+.env
+.env.local
+.env.*.local
+
+# ── Dependencies ──
+node_modules/
+
+# ── Logs ──
+npm-debug.log*
+*.log
+
+# ── OS junk ──
+.DS_Store
+Thumbs.db
+
+# ── Editor ──
+.vscode/
+.idea/
+
+# ── Build/temp ──
+dist/
+build/
+tmp/
