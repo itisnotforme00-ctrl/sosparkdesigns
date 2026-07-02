@@ -2,6 +2,7 @@ const express  = require('express');
 const router   = express.Router();
 const bcrypt   = require('bcryptjs');
 const jwt      = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const auth     = require('../middleware/auth');
 const { Admin } = require('../models');
 
@@ -22,8 +23,25 @@ async function ensureDefaultAdmin() {
     console.error('Admin seed error:', err.message);
   }
 }
-// Run after DB connects
-setTimeout(ensureDefaultAdmin, 3000);
+
+// ── B2 fix ──
+// Previously this fired from a fixed setTimeout(fn, 3000), which raced a slow
+// cold-start Mongo connection (e.g. Atlas waking up, retry/backoff in
+// server.js taking >3s). If the timeout fired before Mongo was actually
+// connected, ensureDefaultAdmin() would fail its countDocuments() call and
+// the seed would silently never happen. Instead, we hook Mongoose's own
+// connection lifecycle: run immediately if already connected (fast local
+// Mongo may already be open by the time this module loads), otherwise wait
+// for the 'open' event, which only fires once the connection genuinely
+// succeeds — no guessing at a timeout duration.
+function scheduleDefaultAdminSeed() {
+  if (mongoose.connection.readyState === 1) {
+    ensureDefaultAdmin();
+  } else {
+    mongoose.connection.once('open', ensureDefaultAdmin);
+  }
+}
+scheduleDefaultAdminSeed();
 
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
