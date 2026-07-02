@@ -1,0 +1,30 @@
+[1mdiff --git a/.env.example b/.env.example[m
+[1mdeleted file mode 100644[m
+[1mindex 9bc2e87..0000000[m
+[1m--- a/.env.example[m
+[1m+++ /dev/null[m
+[36m@@ -1,24 +0,0 @@[m
+[31m-# ============================================[m
+[31m-# SoSpark Design v2 — Environment Variables[m
+[31m-# ============================================[m
+[31m-[m
+[31m-# ── Server ──[m
+[31m-NODE_ENV=development[m
+[31m-PORT=3000[m
+[31m-[m
+[31m-# ── MongoDB ──[m
+[31m-# Atlas connection string — include /sosparkdesign before the ?[m
+[31m-MONGODB_URI=mongodb+srv://zoktanianaani338_db_user:YOUR_PASSWORD@cluster0.r7divhm.mongodb.net/sosparkdesign?appName=Cluster0[m
+[31m-[m
+[31m-# ── JWT ──[m
+[31m-JWT_SECRET=your_64_char_hex_secret_here[m
+[31m-[m
+[31m-# ── Groq AI — Single key ──[m
+[31m-GROQ_API_KEY=gsk_your_groq_key_here[m
+[31m-[m
+[31m-# ── Groq AI — Multi-key rotation (comma-separated, no spaces) ──[m
+[31m-# Add multiple keys to distribute rate limits across all of them[m
+[31m-# GROQ_API_KEYS=gsk_key1,gsk_key2,gsk_key3[m
+[31m-[m
+[31m-# ── CORS ──[m
+[31m-CORS_ORIGIN=http://localhost:3000[m

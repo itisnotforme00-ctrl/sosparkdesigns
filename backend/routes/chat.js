@@ -2,28 +2,118 @@ const express = require('express');
 const router  = express.Router();
 const Groq    = require('groq-sdk');
 
-// ── Multi-key rotation ──
-// Set GROQ_API_KEYS as a comma-separated list in .env for rotation
-// Falls back to single GROQ_API_KEY
-const rawKeys = process.env.GROQ_API_KEYS || process.env.GROQ_API_KEY || '';
-const API_KEYS = rawKeys.split(',').map(k => k.trim()).filter(Boolean);
+/**
+ * ── Provider adapter pattern (A7) ──
+ * Each adapter knows how to build a client for its own provider and how to
+ * turn (systemPrompt + history) into a reply string for that provider's
+ * SDK/response shape. The pool/rotation logic below only ever talks to this
+ * interface, so adding a second provider later means writing a new adapter
+ * object and registering it in PROVIDERS — not touching the rotation loop.
+ */
+const groqAdapter = {
+  name: 'groq',
+  createClient(apiKey) {
+    // 20s timeout so a hung Groq request fails fast and rotates to the next
+    // key instead of leaving the widget stuck on "typing…" forever.
+    return new Groq({ apiKey, timeout: 20_000 });
+  },
+  async complete(client, { model, systemPrompt, history }) {
+    const completion = await client.chat.completions.create({
+      model,
+      messages: [{ role: 'system', content: systemPrompt }, ...history],
+      max_tokens: 400,
+      temperature: 0.75,
+    });
+    return completion.choices[0]?.message?.content || '';
+  },
+};
 
-if (API_KEYS.length === 0) {
-  console.warn('⚠️   No Groq API keys configured — chat will not work');
+// Registry of available provider adapters. Add future providers here
+// (e.g. `openai: openaiAdapter`) once they're needed — see A7 note below.
+const PROVIDERS = { groq: groqAdapter };
+
+// ── Model per provider ──
+// A3: `llama-3.1-8b-instant` was confirmed (console.groq.com/docs/deprecations,
+// checked 2026-07-02) as deprecated by Groq on 2026-06-17, with a shutdown
+// date of 2026-08-16 — it still works today but will hard-fail after that
+// date. Switched proactively to Groq's recommended replacement,
+// `openai/gpt-oss-20b`, rather than leaving a time bomb in main. Flagging
+// this model change explicitly in the PR per the brief.
+const MODELS = { groq: 'openai/gpt-oss-20b' };
+
+/**
+ * ── Key pool (A7) ──
+ * Each entry: { provider, key, failCount, active }.
+ *
+ * IMPORTANT — scope of what's done here: this pool is currently populated
+ * from env vars only (GROQ_API_KEYS comma-separated, or single
+ * GROQ_API_KEY), same as the original getNextClient(), just restructured so
+ * silent failover and per-key failure tracking work. It does NOT yet read
+ * from or write back to the backend worker's shared key-pool store /
+ * admin CRUD endpoint (their task B6) — that integration is BLOCKED
+ * pending the field-name schema for that endpoint, per the brief's
+ * instruction not to guess it. Once that schema is available, replace
+ * `loadKeysFromEnv()` with a fetch against the backend pool, and change
+ * `recordSuccess`/`recordFailure` below to also write back `failCount`/
+ * `active` there instead of only in memory.
+ *
+ * What *is* solid today: Groq-only, multi-key, silent, cross-request
+ * failover — any failure (auth error, 429, timeout, malformed response)
+ * rotates to the next active key without the visitor ever seeing an error,
+ * a key that fails MAX_FAILS_BEFORE_DEACTIVATE times in a row gets
+ * deactivated automatically, and a user-facing error is only returned once
+ * every active key in the pool has been exhausted for this request.
+ */
+function loadKeysFromEnv() {
+  const raw = process.env.GROQ_API_KEYS || process.env.GROQ_API_KEY || '';
+  return raw.split(',').map(k => k.trim()).filter(Boolean).map(key => ({
+    provider: 'groq',
+    key,
+    failCount: 0,
+    active: true,
+  }));
 }
 
-let keyIndex = 0;
-function getNextClient() {
-  if (API_KEYS.length === 0) return null;
-  const key = API_KEYS[keyIndex % API_KEYS.length];
-  keyIndex++;
-  return new Groq({ apiKey: key });
+const pool = loadKeysFromEnv();
+
+if (pool.length === 0) {
+  console.warn('⚠️   No API keys configured for any provider — chat will not work');
 }
 
-// ── Current supported model (llama3-8b-8192 is decommissioned) ──
-const MODEL = 'llama-3.1-8b-instant';
+const MAX_FAILS_BEFORE_DEACTIVATE = 3;
+let cursor = 0;
+
+function activeKeys() {
+  return pool.filter(k => k.active);
+}
+
+function nextKeyEntry() {
+  const active = activeKeys();
+  if (active.length === 0) return null;
+  const entry = active[cursor % active.length];
+  cursor++;
+  return entry;
+}
+
+function recordSuccess(entry) {
+  entry.failCount = 0;
+}
+
+function recordFailure(entry) {
+  entry.failCount++;
+  if (entry.failCount >= MAX_FAILS_BEFORE_DEACTIVATE) {
+    entry.active = false;
+    console.warn(
+      `Key pool: deactivating ${entry.provider} key (…${entry.key.slice(-4)}) ` +
+      `after ${entry.failCount} consecutive failures`
+    );
+  }
+}
 
 // ── Full SoSpark Design system prompt ──
+// A4: content unchanged from the existing prompt. Founder name, the six
+// services, and the pricing/redirect policy all need owner confirmation
+// that they're still current — see PR notes. Not silently edited.
 const SYSTEM_PROMPT = `You are Spark — the AI brand consultant and creative assistant for SoSpark Design.
 
 ## WHO YOU ARE
@@ -98,36 +188,72 @@ router.post('/', async (req, res) => {
       content: String(m.content || '').slice(0, 1200),
     }));
 
-    // Try up to all available keys on rate limit
+    // A6 — case 1: no keys configured for any provider at all.
+    if (pool.length === 0) {
+      return res.status(503).json({
+        error: 'AI service not configured',
+        code: 'NOT_CONFIGURED',
+      });
+    }
+
+    // A6 — case: every key in the pool has been auto-deactivated by
+    // repeated failures (distinct from "never configured" above, so the
+    // owner can tell them apart in logs).
+    if (activeKeys().length === 0) {
+      return res.status(503).json({
+        error: 'AI service temporarily unavailable',
+        code: 'POOL_EXHAUSTED',
+      });
+    }
+
+    // A7 — try every currently-active key, silently, before giving up.
     let lastError;
-    for (let attempt = 0; attempt < Math.max(API_KEYS.length, 1); attempt++) {
-      const client = getNextClient();
-      if (!client) {
-        return res.status(503).json({ error: 'AI service not configured' });
+    const attempts = activeKeys().length;
+    for (let i = 0; i < attempts; i++) {
+      const entry = nextKeyEntry();
+      if (!entry) break; // pool emptied mid-loop by deactivations
+
+      const adapter = PROVIDERS[entry.provider];
+      if (!adapter) {
+        recordFailure(entry);
+        continue;
       }
+
       try {
-        const completion = await client.chat.completions.create({
-          model: MODEL,
-          messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...history],
-          max_tokens: 400,
-          temperature: 0.75,
+        const client = adapter.createClient(entry.key);
+        const reply = await adapter.complete(client, {
+          model: MODELS[entry.provider],
+          systemPrompt: SYSTEM_PROMPT,
+          history,
         });
-        const reply = completion.choices[0]?.message?.content || 'I couldn\'t generate a response — please try again.';
-        return res.json({ reply });
+        recordSuccess(entry);
+        return res.json({
+          reply: reply || "I couldn't generate a response — please try again.",
+        });
       } catch (err) {
         lastError = err;
-        // On rate limit (429), rotate to next key automatically
-        if (err.status === 429 || err.message?.includes('rate') || err.message?.includes('limit')) {
-          console.warn(`Groq key ${attempt + 1} rate-limited, rotating...`);
-          continue;
-        }
-        throw err;
+        recordFailure(entry);
+        // Silent rotation: auth errors, 429s, timeouts, and any other
+        // failure all move on to the next key without surfacing to the
+        // visitor, as long as an active key remains. Nothing to check on
+        // err.status here on purpose — every failure type rotates.
+        continue;
       }
     }
-    throw lastError;
+
+    // A6 — case 2/3: the whole pool failed for this request (API failure,
+    // timeout, or every key currently rate-limited/exhausted).
+    console.error('Chat: entire key pool failed for this request. Last error:', lastError?.message);
+    return res.status(503).json({
+      error: 'AI service temporarily unavailable. Try again in a moment.',
+      code: 'POOL_EXHAUSTED',
+    });
   } catch (err) {
-    console.error('Groq error:', err.message);
-    res.status(500).json({ error: 'AI service temporarily unavailable. Try again in a moment.' });
+    console.error('Chat route error:', err.message);
+    res.status(500).json({
+      error: 'AI service temporarily unavailable. Try again in a moment.',
+      code: 'INTERNAL',
+    });
   }
 });
 

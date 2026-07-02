@@ -203,6 +203,18 @@
     return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
+  // A6: on-brand messages for each known failure case, instead of a raw JS
+  // error or a silent stall. Keyed loosely off HTTP status / backend `code`
+  // rather than string-matching error text.
+  const FALLBACK_MESSAGES = {
+    NOT_CONFIGURED: "I'm not able to chat right now — the team's already been notified. Feel free to reach out through the contact page in the meantime.",
+    RATE_LIMITED: "I'm getting a lot of messages right now — give it a minute and try again.",
+    POOL_EXHAUSTED: "I'm having trouble connecting on my end. Please try again shortly, or reach out via the contact page.",
+    TIMEOUT: 'That took longer than expected — please try again.',
+    GENERIC: 'Sorry, I ran into an issue on my end. Please try again in a moment.',
+    OFFLINE: 'Connection issue — please try again.',
+  };
+
   async function send() {
     const text = input.value.trim();
     if (!text || loading) return;
@@ -214,20 +226,46 @@
     history.push({ role: 'user', content: text });
     showTyping();
 
+    // Guard against a hung request leaving the "typing…" indicator forever.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
+
     try {
-      const res  = await fetch('/api/chat', {
+      const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: history }),
+        signal: controller.signal,
       });
-      const data = await res.json();
+      clearTimeout(timeoutId);
+
+      let data = {};
+      try { data = await res.json(); } catch { /* non-JSON error body, fall through */ }
+
       hideTyping();
-      const reply = data.reply || 'Sorry, I ran into an issue. Please try again.';
-      appendMsg('ai', reply);
-      history.push({ role: 'assistant', content: reply });
-    } catch {
+
+      if (res.ok && data.reply) {
+        appendMsg('ai', data.reply);
+        history.push({ role: 'assistant', content: data.reply });
+      } else if (res.status === 429) {
+        // Server-wide 60 req/min limiter (set in server.js) or an
+        // exhausted-but-rate-limited pool.
+        appendMsg('ai', FALLBACK_MESSAGES.RATE_LIMITED);
+      } else if (data.code === 'NOT_CONFIGURED') {
+        appendMsg('ai', FALLBACK_MESSAGES.NOT_CONFIGURED);
+      } else if (data.code === 'POOL_EXHAUSTED') {
+        appendMsg('ai', FALLBACK_MESSAGES.POOL_EXHAUSTED);
+      } else {
+        appendMsg('ai', FALLBACK_MESSAGES.GENERIC);
+      }
+    } catch (err) {
+      clearTimeout(timeoutId);
       hideTyping();
-      appendMsg('ai', 'Connection issue — please try again.');
+      if (err.name === 'AbortError') {
+        appendMsg('ai', FALLBACK_MESSAGES.TIMEOUT);
+      } else {
+        appendMsg('ai', FALLBACK_MESSAGES.OFFLINE);
+      }
     }
 
     loading = false;
