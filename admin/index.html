@@ -159,6 +159,24 @@
       document.getElementById('password').value = 'soaspark2024';
     });
 
+    // ── B1 fix ──
+    // Previously a dead database and a wrong password looked identical to
+    // the person typing: both landed on "Invalid credentials" (because
+    // ensureDefaultAdmin() never seeded the account, so the login lookup
+    // just failed like any other unknown user). Before attempting login, we
+    // now check /api/health directly. If Mongo isn't connected, we show a
+    // distinct, actionable message instead of ever hitting /api/auth/login
+    // with a misleading "wrong password" result.
+    async function checkDbConnected() {
+      try {
+        const res  = await fetch('/api/health');
+        const data = await res.json();
+        return data.dbState === 1; // true = connected, false = not
+      } catch {
+        return null; // couldn't reach the server at all — different problem, handled below
+      }
+    }
+
     form.addEventListener('submit', async function (e) {
       e.preventDefault();
       errMsg.classList.remove('show');
@@ -169,6 +187,12 @@
       const password = document.getElementById('password').value;
 
       if (!username || !password) { showError('Please enter both username and password.'); return; }
+
+      const dbConnected = await checkDbConnected();
+      if (dbConnected === false) {
+        showError('Database not connected — check server configuration. (This is not a wrong-password error — the server cannot reach MongoDB right now.)');
+        return;
+      }
 
       try {
         const res  = await fetch('/api/auth/login', {

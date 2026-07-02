@@ -99,6 +99,32 @@ const adminSchema = new Schema({
   role:         { type: String, enum: ['admin', 'editor'], default: 'admin' },
 }, { timestamps: true });
 
+// ── API Key Pool (B6) ──
+// Storage/CRUD half of bulk API key management. The rotation-and-failover
+// logic that actually USES these keys during a chat request belongs to the
+// API-agent worker in routes/chat.js — this model and its routes only
+// manage the pool (add in bulk, list masked, deactivate, delete).
+//
+// `encryptedKey` is never returned in any API response — see the toJSON
+// transform below, plus routes/apikeys.js never selects it into its
+// responses in the first place (defense in depth). Only `last4` (a masked
+// preview) is ever shown, even to the admin panel, per the brief.
+const apiKeySchema = new Schema({
+  provider:     { type: String, required: true, trim: true, lowercase: true }, // e.g. 'groq', 'openai'
+  encryptedKey: { type: String, required: true, select: false }, // AES-256-GCM ciphertext, see utils/keyCrypto.js
+  last4:        { type: String, required: true }, // masked preview only, e.g. "xk3f"
+  active:       { type: Boolean, default: true },
+  lastUsed:     { type: Date, default: null },
+  failCount:    { type: Number, default: 0 },
+}, { timestamps: true });
+
+apiKeySchema.set('toJSON', {
+  transform: (doc, ret) => {
+    delete ret.encryptedKey;
+    return ret;
+  },
+});
+
 module.exports = {
   Portfolio:   mongoose.model('Portfolio',   portfolioSchema),
   Service:     mongoose.model('Service',     serviceSchema),
@@ -108,4 +134,5 @@ module.exports = {
   Offer:       mongoose.model('Offer',       offerSchema),
   Contact:     mongoose.model('Contact',     contactSchema),
   Admin:       mongoose.model('Admin',       adminSchema),
+  ApiKey:      mongoose.model('ApiKey',      apiKeySchema),
 };
