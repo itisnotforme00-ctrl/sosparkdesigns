@@ -1,6 +1,7 @@
 const express = require('express');
 const router  = express.Router();
 const auth    = require('../middleware/auth');
+const { requireRole } = require('../middleware/permissions');
 const { Testimonial } = require('../models');
 
 router.get('/', async (req, res) => {
@@ -12,12 +13,12 @@ router.get('/', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Server error' }); }
 });
 
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, requireRole('editor'), async (req, res) => {
   try { res.status(201).json(await Testimonial.create(req.body)); }
   catch (err) { res.status(400).json({ error: err.message }); }
 });
 
-router.put('/:id', auth, async (req, res) => {
+router.put('/:id', auth, requireRole('editor'), async (req, res) => {
   try {
     const t = await Testimonial.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!t) return res.status(404).json({ error: 'Not found' });
@@ -25,7 +26,7 @@ router.put('/:id', auth, async (req, res) => {
   } catch (err) { res.status(400).json({ error: err.message }); }
 });
 
-router.delete('/:id', auth, async (req, res) => {
+router.delete('/:id', auth, requireRole('editor'), async (req, res) => {
   try { await Testimonial.findByIdAndDelete(req.params.id); res.json({ success: true }); }
   catch (err) { res.status(500).json({ error: 'Server error' }); }
 });

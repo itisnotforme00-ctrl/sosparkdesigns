@@ -94,8 +94,13 @@
   }
 
   // ── Mouse-reactive 3D tilt on hero scene (subtle, persistent base motion continues via CSS) ──
+  // R1: only wire this up on devices with an actual mouse. It was previously
+  // starting an unconditional requestAnimationFrame loop on every page load
+  // (including touch devices, where mousemove never fires and the loop just
+  // spins forever for no visual benefit) — a real mobile performance cost.
+  const hasFinePointer = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
   const scene = document.querySelector('.hero__3d-scene');
-  if (scene) {
+  if (scene && hasFinePointer) {
     let targetX = 0, targetY = 0, curX = 0, curY = 0;
     window.addEventListener('mousemove', e => {
       targetX = (e.clientX / window.innerWidth - 0.5) * 14;
@@ -163,6 +168,33 @@
       <div class="ambient-blob ambient-blob--3"></div>
     `;
     document.body.prepend(wrap);
+  }
+
+  // ── T2: gentle mouse-parallax on the ambient blobs, layered on top of the
+  // existing CSS blobFloat keyframes so the background keeps drifting even
+  // when the cursor never moves (trackpad idle, touch devices, etc). Skipped
+  // entirely under prefers-reduced-motion — the blobFloat keyframes already
+  // fall under that global rule in variables.css, and this adds a second,
+  // independent motion source, so it needs its own guard rather than relying
+  // on the CSS media query alone. ──
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const blobs = document.querySelectorAll('.ambient-blob');
+  if (blobs.length && !reduceMotion && hasFinePointer) {
+    let px = 0, py = 0, cpx = 0, cpy = 0;
+    window.addEventListener('mousemove', e => {
+      px = (e.clientX / window.innerWidth - 0.5);
+      py = (e.clientY / window.innerHeight - 0.5);
+    }, { passive: true });
+    (function parallaxLoop() {
+      cpx += (px - cpx) * 0.02;
+      cpy += (py - cpy) * 0.02;
+      blobs.forEach((el, i) => {
+        const depth = (i + 1) * 10; // each blob drifts at a slightly different depth
+        el.style.setProperty('--parallax-x', (cpx * depth) + 'px');
+        el.style.setProperty('--parallax-y', (cpy * depth) + 'px');
+      });
+      requestAnimationFrame(parallaxLoop);
+    })();
   }
 
 })();

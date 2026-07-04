@@ -38,6 +38,10 @@ body::before {
   position: absolute;
   border-radius: 50%;
   filter: blur(80px);
+  /* Mouse-parallax offset (set via JS in animations.js), layered on top of
+     the blobFloat transform keyframes below using the standalone `translate`
+     property so the two motion sources don't fight over `transform`. */
+  translate: var(--parallax-x, 0) var(--parallax-y, 0);
 }
 
 .ambient-blob--1 {
@@ -85,7 +89,7 @@ h1,h2,h3,h4,h5,h6 {
   font-weight: 700; line-height: 1.05; letter-spacing: -0.02em;
   color: var(--ink);
 }
-p { line-height: 1.72; color: var(--ink-3); }
+p { line-height: 1.72; color: var(--ink-light); }
 a { color: inherit; text-decoration: none; }
 img, svg { display: block; max-width: 100%; }
 ul, ol { list-style: none; }

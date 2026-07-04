@@ -15,6 +15,16 @@
 }
 .portfolio-hero__title { font-size: var(--text-5xl); font-weight: 900; letter-spacing: -0.04em; line-height: 0.95; margin-top: var(--sp-5); max-width: 14ch; }
 
+/* T4 — distinct entrance: a solid blue panel wipes off the headline instead
+   of a fade, like a shutter opening on the work underneath. */
+.portfolio-hero__title--shutter { position: relative; overflow: hidden; }
+.portfolio-hero__title--shutter::after {
+  content: '';
+  position: absolute; inset: 0; background: var(--blue);
+  transform-origin: right; animation: shutterWipe 0.85s var(--ease-cinematic) 0.2s forwards;
+}
+@keyframes shutterWipe { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
 /* Filter bar */
 .portfolio-filters {
   display: flex; gap: var(--sp-3); flex-wrap: wrap; margin-top: var(--sp-10);
@@ -111,7 +121,7 @@
 }
 .case-study__tag { font-family: var(--font-ui); font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--blue); margin-bottom: var(--sp-4); }
 .case-study__title { font-size: var(--text-3xl); font-weight: 900; letter-spacing: -0.04em; margin-bottom: var(--sp-5); }
-.case-study__desc { font-size: var(--text-base); color: var(--ink-3); line-height: 1.75; margin-bottom: var(--sp-6); }
+.case-study__desc { font-size: var(--text-base); color: var(--ink-light); line-height: 1.75; margin-bottom: var(--sp-6); }
 .case-study__meta { display: flex; gap: var(--sp-8); flex-wrap: wrap; }
 .case-study__meta-item dt { font-family: var(--font-ui); font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-light); margin-bottom: var(--sp-1); }
 .case-study__meta-item dd { font-family: var(--font-display); font-size: var(--text-lg); font-weight: 700; color: var(--ink); }

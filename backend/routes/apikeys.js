@@ -1,6 +1,7 @@
 const express = require('express');
 const router  = express.Router();
 const auth    = require('../middleware/auth');
+const { requireRole } = require('../middleware/permissions');
 const { ApiKey } = require('../models');
 const { encrypt } = require('../utils/keyCrypto');
 
@@ -32,7 +33,7 @@ function mask(doc) {
 }
 
 // GET /api/apikeys — admin: list all keys (masked), optional ?provider= filter
-router.get('/', auth, async (req, res) => {
+router.get('/', auth, requireRole('super_admin'), async (req, res) => {
   try {
     const filter = {};
     if (req.query.provider) filter.provider = String(req.query.provider).toLowerCase().trim();
@@ -45,7 +46,7 @@ router.get('/', auth, async (req, res) => {
 
 // POST /api/apikeys/bulk — admin: paste a batch of keys for one provider
 // Body: { provider: "groq", keys: "key1\nkey2\nkey3" }  (newline OR comma separated)
-router.post('/bulk', auth, async (req, res) => {
+router.post('/bulk', auth, requireRole('super_admin'), async (req, res) => {
   try {
     const { provider, keys } = req.body;
 
@@ -86,7 +87,7 @@ router.post('/bulk', auth, async (req, res) => {
 
 // PATCH /api/apikeys/:id — activate/deactivate a key (no server restart needed)
 // Body: { active: true|false }
-router.patch('/:id', auth, async (req, res) => {
+router.patch('/:id', auth, requireRole('super_admin'), async (req, res) => {
   try {
     const { active } = req.body;
     if (typeof active !== 'boolean') {
@@ -101,7 +102,7 @@ router.patch('/:id', auth, async (req, res) => {
 });
 
 // DELETE /api/apikeys/:id — permanently remove a key from the pool
-router.delete('/:id', auth, async (req, res) => {
+router.delete('/:id', auth, requireRole('super_admin'), async (req, res) => {
   try {
     const deleted = await ApiKey.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ error: 'Not found' });
