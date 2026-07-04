@@ -1,6 +1,7 @@
 const express = require('express');
 const router  = express.Router();
 const auth    = require('../middleware/auth');
+const { requireRole } = require('../middleware/permissions');
 const { Contact } = require('../models');
 
 // POST /api/contact — submit form
@@ -26,7 +27,7 @@ router.post('/', async (req, res) => {
 });
 
 // GET /api/contact — admin: list all messages
-router.get('/', auth, async (req, res) => {
+router.get('/', auth, requireRole('support'), async (req, res) => {
   try {
     const messages = await Contact.find().sort({ createdAt: -1 });
     res.json(messages);
@@ -36,7 +37,7 @@ router.get('/', auth, async (req, res) => {
 });
 
 // PATCH /api/contact/:id — mark read/replied
-router.patch('/:id', auth, async (req, res) => {
+router.patch('/:id', auth, requireRole('support'), async (req, res) => {
   try {
     const { read, replied } = req.body;
     const msg = await Contact.findByIdAndUpdate(req.params.id, { read, replied }, { new: true });
@@ -48,7 +49,7 @@ router.patch('/:id', auth, async (req, res) => {
 });
 
 // DELETE /api/contact/:id — admin delete
-router.delete('/:id', auth, async (req, res) => {
+router.delete('/:id', auth, requireRole('editor'), async (req, res) => {
   try {
     await Contact.findByIdAndDelete(req.params.id);
     res.json({ success: true });

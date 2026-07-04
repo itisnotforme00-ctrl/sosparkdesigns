@@ -2,28 +2,43 @@
    SoSpark Design v3 — Navigation
    ============================================ */
 
+/* H1 — softened from a boxy full-bleed bar into a floating glass pill.
+   .nav stays a fixed, unstyled strip at the original --nav-h height so every
+   page's `padding-top: var(--nav-h)` offset keeps working untouched — the
+   pill treatment lives entirely on .nav__inner, inset from the edges. */
 .nav {
   position: fixed; top: 0; left: 0; right: 0;
   z-index: 1000; height: var(--nav-h);
   display: flex; align-items: center;
-  transition: background var(--dur-slow) var(--ease-out),
-              border-color var(--dur-slow) var(--ease-out),
-              box-shadow var(--dur-slow) var(--ease-out);
-  border-bottom: 1px solid transparent;
-}
-
-.nav.scrolled {
-  background: var(--glass-bg-strong);
-  backdrop-filter: var(--blur-md);
-  -webkit-backdrop-filter: var(--blur-md);
-  border-bottom-color: var(--glass-border-2);
-  box-shadow: 0 4px 24px rgba(15,14,12,0.07);
+  padding-inline: var(--sp-4);
+  transition: padding-inline var(--dur-slow) var(--ease-out);
 }
 
 .nav__inner {
   width: 100%; max-width: var(--container-max);
   margin-inline: auto; padding-inline: var(--container-pad);
+  padding-block: 0.85rem;
   display: flex; align-items: center; justify-content: space-between; gap: var(--sp-8);
+  background: var(--glass-bg-subtle);
+  backdrop-filter: var(--blur-sm);
+  -webkit-backdrop-filter: var(--blur-sm);
+  border: 1px solid var(--glass-border-2);
+  border-radius: var(--r-pill);
+  box-shadow: 0 4px 20px rgba(15,14,12,0.05);
+  transition: background var(--dur-slow) var(--ease-out),
+              backdrop-filter var(--dur-slow) var(--ease-out),
+              border-color var(--dur-slow) var(--ease-out),
+              box-shadow var(--dur-slow) var(--ease-out);
+}
+
+/* Extends the existing .scrolled direction (previously on .nav itself, now
+   on the pill) rather than introducing a new state or easing curve. */
+.nav.scrolled .nav__inner {
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--blur-md);
+  -webkit-backdrop-filter: var(--blur-md);
+  border-color: var(--glass-border);
+  box-shadow: var(--glass-shadow-blue);
 }
 
 /* Full logo SVG — no wordmark text needed */
@@ -93,3 +108,10 @@
 
 @media (max-width: 900px) { .nav__links, .nav__cta { display: none; } .nav__hamburger { display: flex; } }
 @media (max-width: 480px) { .nav__logo-img { height: 32px; } }
+
+/* R1 — mobile: hamburger's visible icon is small (22px lines) but the
+   actual tappable area was only ~32px from padding alone, under the 44px
+   minimum touch target. Padding increases, icon stays visually the same. */
+@media (max-width: 900px) {
+  .nav__hamburger { padding: 0.7rem; }
+}

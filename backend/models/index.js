@@ -92,12 +92,82 @@ const contactSchema = new Schema({
   replied:     { type: Boolean, default: false },
 }, { timestamps: true });
 
-// ── Admin User ──
+// ── Admin User (RBAC — feature 4) ──
+// Role hierarchy, enforced by middleware/permissions.js:
+//   super_admin — full access: manage admins/roles, site settings, API keys, all content
+//   editor      — manage content (portfolio/services/team/testimonials/faq/offers),
+//                 cannot manage admins, cannot change site settings or API keys
+//   support     — read + respond to contact messages only, plus analytics viewing
+//   viewer      — read-only: dashboard stats + analytics, no mutations anywhere
+//
+// 'admin' is kept in the enum as a LEGACY ALIAS for 'super_admin' — existing
+// deployments already have a seeded admin with role: 'admin' from before this
+// feature existed, and this schema change must not silently lock that account
+// out or downgrade its permissions. middleware/permissions.js treats 'admin'
+// and 'super_admin' as equal rank. New accounts (via /api/admins or a fresh
+// /api/auth/setup bootstrap) are created with 'super_admin' going forward.
 const adminSchema = new Schema({
   username:     { type: String, required: true, unique: true, lowercase: true },
   passwordHash: { type: String, required: true },
-  role:         { type: String, enum: ['admin', 'editor'], default: 'admin' },
+  role:         { type: String, enum: ['admin', 'super_admin', 'editor', 'support', 'viewer'], default: 'editor' },
+  active:       { type: Boolean, default: true }, // deactivated admins can't log in, without deleting the account/history
+  invitedBy:    { type: String, default: null },  // username of the super_admin who created this account, for audit purposes
 }, { timestamps: true });
+
+adminSchema.set('toJSON', {
+  transform: (doc, ret) => {
+    delete ret.passwordHash; // never leak the hash, even to the admin panel itself
+    return ret;
+  },
+});
+
+// ── Site Settings (feature 1 — editable config without redeploy) ──
+// Generic key/value store so content/config the owner wants to change after
+// launch doesn't require editing code + redeploying. `value` is Mixed so it
+// can hold a string, boolean, number, or small JSON object depending on
+// `type`. Frontend marketing pages aren't touched by this project, but this
+// gives them (or a future admin UI) a real API to read from instead of
+// hardcoded values.
+const settingSchema = new Schema({
+  key:       { type: String, required: true, unique: true, trim: true },      // e.g. "homepage.heroTitle", "site.maintenanceMode"
+  value:     { type: Schema.Types.Mixed, required: true },
+  type:      { type: String, enum: ['text', 'richtext', 'boolean', 'number', 'json', 'image'], default: 'text' },
+  group:     { type: String, default: 'general', trim: true, lowercase: true }, // for grouping in an admin UI, e.g. "homepage", "contact", "general"
+  label:     { type: String, default: '' },   // human-readable label for the admin UI
+  updatedBy: { type: String, default: '' },   // username of the admin who last changed it
+}, { timestamps: true });
+
+// ── Page View (feature 2 — server-side visitor analytics) ──
+// Populated by middleware/analyticsLogger.js on every non-API, non-admin,
+// non-static-asset GET request that passes through this Express app (which
+// is all frontend traffic, since server.js serves frontend/ via
+// express.static). No client-side tracking script is used or required —
+// see the analyticsLogger middleware for why.
+const pageViewSchema = new Schema({
+  path:           { type: String, required: true, index: true },
+  referrer:       { type: String, default: '' },
+  referrerSource: { type: String, default: 'direct', index: true }, // 'direct' | 'google' | 'facebook' | 'instagram' | 'twitter/x' | 'linkedin' | 'youtube' | 'bing' | 'duckduckgo' | 'internal' | 'other'
+  country:        { type: String, default: 'Unknown', index: true }, // from cf-ipcountry / x-country-code proxy header if present, else 'Unknown'
+  device:         { type: String, default: 'unknown' }, // 'desktop' | 'mobile' | 'tablet'
+  browser:        { type: String, default: 'unknown' },
+  visitorId:      { type: String, default: '', index: true }, // first-party cookie value, used for unique-visitor + active-user counts
+  statusCode:     { type: Number, default: 200 },
+}, { timestamps: true });
+
+pageViewSchema.index({ createdAt: -1 });
+
+// ── Error Log (feature 1 — dashboard error visibility) ──
+// Populated by the global error handler in server.js so the dashboard can
+// show a real error count/feed instead of only console output.
+const errorLogSchema = new Schema({
+  message:    { type: String, required: true },
+  stack:      { type: String, default: '' },
+  path:       { type: String, default: '' },
+  method:     { type: String, default: '' },
+  statusCode: { type: Number, default: 500 },
+}, { timestamps: true });
+
+errorLogSchema.index({ createdAt: -1 });
 
 // ── API Key Pool (B6) ──
 // Storage/CRUD half of bulk API key management. The rotation-and-failover
@@ -135,4 +205,7 @@ module.exports = {
   Contact:     mongoose.model('Contact',     contactSchema),
   Admin:       mongoose.model('Admin',       adminSchema),
   ApiKey:      mongoose.model('ApiKey',      apiKeySchema),
+  Setting:     mongoose.model('Setting',     settingSchema),
+  PageView:    mongoose.model('PageView',    pageViewSchema),
+  ErrorLog:    mongoose.model('ErrorLog',    errorLogSchema),
 };

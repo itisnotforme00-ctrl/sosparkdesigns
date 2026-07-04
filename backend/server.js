@@ -1,10 +1,25 @@
 require('dotenv').config();
-const express   = require('express');
-const mongoose  = require('mongoose');
-const cors      = require('cors');
-const path      = require('path');
-const helmet    = require('helmet');
-const rateLimit = require('express-rate-limit');
+const dns            = require('dns');
+const express        = require('express');
+const mongoose       = require('mongoose');
+const cors           = require('cors');
+const path           = require('path');
+const helmet         = require('helmet');
+const rateLimit      = require('express-rate-limit');
+const analyticsLogger = require('./middleware/analyticsLogger'); // feature 2 — server-side visitor analytics
+const { ErrorLog }   = require('./models'); // feature 1 — error logging for the monitoring dashboard
+
+// ── DNS override ──
+// Required on this deployment's network: the standard mongodb+srv://
+// connection string does a DNS SRV lookup to discover the Atlas cluster's
+// real hosts, and that lookup fails against this ISP's default resolver.
+// Pointing Node's DNS resolution at Google's public DNS fixes it. This must
+// run before mongoose.connect() below (SRV resolution happens at connect
+// time), and before anything else in this file that might trigger a DNS
+// lookup. Keep this in place in any future version of server.js — it's an
+// operational requirement of this deployment's network, not a
+// temporary/debug workaround.
+dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 const app = express();
 
@@ -66,6 +81,14 @@ app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// ── Visitor analytics (feature 2) ──
+// Must run before express.static below, since it only attaches a
+// res.on('finish') listener and calls next() — it doesn't consume the
+// response, so static file serving still works exactly as before. See
+// middleware/analyticsLogger.js for why this is server-side only (no
+// frontend/ changes).
+app.use(analyticsLogger);
+
 // ── Static files ──
 app.use(express.static(path.join(__dirname, '../frontend')));
 app.use('/admin', express.static(path.join(__dirname, '../admin')));
@@ -120,15 +143,33 @@ app.use('/api/testimonials', require('./routes/testimonials'));
 app.use('/api/faq',          require('./routes/faq'));
 app.use('/api/offers',       require('./routes/offers'));
 app.use('/api/auth',         require('./routes/auth'));
-app.use('/api/apikeys',      require('./routes/apikeys')); // B6 — admin-only key pool CRUD
+app.use('/api/apikeys',      require('./routes/apikeys'));    // B6 — admin-only key pool CRUD
+app.use('/api/analytics',    require('./routes/analytics'));  // feature 2 — visitor analytics + dashboard stats
+app.use('/api/settings',     require('./routes/settings'));   // feature 1 — editable content/config without redeploy
+app.use('/api/admins',       require('./routes/admins'));     // feature 4 — multi-admin & role management
 
 // ── SPA catch-alls ──
 app.get('/admin/*', (req, res) => res.sendFile(path.join(__dirname, '../admin/dashboard.html')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../frontend/index.html')));
 
 // ── Global error handler ──
+// feature 1: also persist errors to ErrorLog so the monitoring dashboard has
+// a real error feed/count, not just console output. Best-effort and
+// non-blocking — a failure to log an error must never prevent the actual
+// error response from being sent, and must never crash the handler itself.
 app.use((err, req, res, next) => {
   console.error(err.stack);
+
+  if (mongoose.connection.readyState === 1) {
+    ErrorLog.create({
+      message: err.message || 'Unknown error',
+      stack: err.stack || '',
+      path: req.originalUrl || req.path || '',
+      method: req.method,
+      statusCode: err.status || 500,
+    }).catch(logErr => console.error('Failed to persist error log:', logErr.message));
+  }
+
   res.status(err.status || 500).json({
     error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
   });

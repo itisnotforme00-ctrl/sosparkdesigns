@@ -94,3 +94,20 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* R1 — mobile: --section-gap's clamp() floor (5rem/80px) doesn't actually
+   shrink on narrow viewports, so every section got the same heavy padding
+   on a 375px phone as on a 1440px desktop — a real contributor to the site
+   feeling sparse and hard to move through on mobile. Lowering the floor
+   here, plus lightening the two heaviest blur tiers (nav pill, glass cards,
+   mobile menu all use these) since backdrop-filter blur is a known mobile
+   Safari jank/battery cost. Same token names, just cheaper values at this
+   breakpoint — no new tokens introduced. */
+@media (max-width: 640px) {
+  :root {
+    --section-gap: clamp(3rem, 12vw, 4.5rem);
+    --sp-32: 4rem;
+    --blur-md: blur(12px) saturate(140%);
+    --blur-lg: blur(18px) saturate(150%);
+  }
+}
