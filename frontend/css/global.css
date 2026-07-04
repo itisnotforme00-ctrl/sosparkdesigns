@@ -244,6 +244,15 @@ input,textarea,select { font-family: var(--font-body); }
 .cinematic-right { transition: transform 0.8s var(--ease-cinematic), opacity 0.8s; }
 .cinematic-scale { transition: transform 0.8s var(--ease-cinematic), opacity 0.8s; }
 
+/* Fix (verified via real render testing): [data-cinematic] elements were only
+   hidden by animations.js setting inline opacity:0 after the JS ran, which
+   left a brief window where they painted at full opacity before JS/the
+   IntersectionObserver settled — a real, confirmed flash-then-fade on load
+   for elements near the first viewport. .reveal already avoids this by
+   defining opacity:0 as baseline CSS below; giving [data-cinematic] the same
+   baseline closes the gap instead of depending on JS timing. */
+[data-cinematic] { opacity: 0; }
+
 /* ── Selection ── */
 ::selection { background: var(--blue-glass-2); color: var(--ink); }
 

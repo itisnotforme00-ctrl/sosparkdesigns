@@ -1,16 +1,4 @@
 require('dotenv').config();
-<<<<<<< HEAD
-require('dotenv').config();
-console.log('DEBUG URI:', (process.env.MONGODB_URI || 'MISSING').replace(/:[^:@]+@/, ':****@'));
-const dns = require('dns');
-dns.setServers(['8.8.8.8', '1.1.1.1']);
-const express   = require('express');
-const mongoose  = require('mongoose');
-const cors      = require('cors');
-const path      = require('path');
-const helmet    = require('helmet');
-const rateLimit = require('express-rate-limit');
-=======
 const dns            = require('dns');
 const express        = require('express');
 const mongoose       = require('mongoose');
@@ -32,7 +20,6 @@ const { ErrorLog }   = require('./models'); // feature 1 — error logging for t
 // operational requirement of this deployment's network, not a
 // temporary/debug workaround.
 dns.setServers(['8.8.8.8', '8.8.4.4']);
->>>>>>> 239f268 (banckend and frontend)
 
 const app = express();
 

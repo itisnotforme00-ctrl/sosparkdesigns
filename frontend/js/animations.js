@@ -157,6 +157,29 @@
     document.head.appendChild(s);
   }
 
+  // ── About page: rail-timeline scroll-driven progress fill (R6) ──
+  const railTimeline = document.getElementById('rail-timeline');
+  const railFill = document.getElementById('rail-fill');
+  if (railTimeline && railFill) {
+    const railItems = railTimeline.querySelectorAll('.rail-item');
+    let railTicking = false;
+    function updateRail() {
+      const rect = railTimeline.getBoundingClientRect();
+      const markLine = window.innerHeight * 0.55; // fill/mark items once they pass just above center
+      let progress = (markLine - rect.top) / rect.height;
+      progress = Math.max(0, Math.min(1, progress));
+      railFill.style.height = (progress * 100) + '%';
+      railItems.forEach(item => {
+        item.classList.toggle('is-passed', item.getBoundingClientRect().top < markLine);
+      });
+      railTicking = false;
+    }
+    window.addEventListener('scroll', () => {
+      if (!railTicking) { requestAnimationFrame(updateRail); railTicking = true; }
+    }, { passive: true });
+    updateRail();
+  }
+
   // ── Inject ambient blobs container if not present (used on every page) ──
   if (!document.querySelector('.ambient-blobs')) {
     const wrap = document.createElement('div');

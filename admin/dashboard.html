@@ -386,6 +386,14 @@
     <button class="adm-nav-btn" data-section="messages"><span class="icon">✉</span>Messages</button>
   </nav>
 
+  <div class="adm-sidebar__section-label">System</div>
+  <nav class="adm-sidebar__nav">
+    <button class="adm-nav-btn" data-section="analytics"><span class="icon">📈</span>Analytics</button>
+    <button class="adm-nav-btn" data-section="settings"><span class="icon">⚙</span>Settings</button>
+    <button class="adm-nav-btn" data-section="admins"><span class="icon">👤</span>Admins</button>
+    <button class="adm-nav-btn" data-section="apikeys"><span class="icon">🔑</span>API Keys</button>
+  </nav>
+
   <div class="adm-sidebar__footer">
     <button class="adm-logout" id="logout-btn">Sign Out</button>
   </div>
@@ -874,6 +882,226 @@ function teamModal(id, d={}) {
   });
 }
 
+// ── Analytics (bare-bones — plain tables, no charts) ──
+async function renderAnalytics() {
+  content.innerHTML = '<div class="adm-loading">Loading…</div>';
+  const dbOk = await checkDB();
+  if (!dbOk) { content.innerHTML = dbBanner(); return; }
+  try {
+    const d = await api('/analytics/overview?days=30');
+    const row = (label, val) => `<div class="adm-stat"><div class="adm-stat__num">${val}</div><div class="adm-stat__label">${label}</div></div>`;
+    const table = (title, cols, rows, mapFn) => `
+      <div class="adm-card">
+        <div class="adm-card__header"><span class="adm-card__title">${title}</span></div>
+        <table><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead>
+        <tbody>${rows.length ? rows.map(mapFn).join('') : `<tr><td colspan="${cols.length}"><div class="adm-empty">No data yet</div></td></tr>`}</tbody></table>
+      </div>`;
+    content.innerHTML = `
+      <div class="adm-stats">
+        ${row('Views (30d)', d.totalViews)}
+        ${row('Views (24h)', d.viewsLast24h)}
+        ${row('Active Now', d.activeUsers)}
+        ${row('Unique Visitors (30d)', d.uniqueVisitors)}
+      </div>
+      <div class="adm-stats">
+        ${row('New Visitors', d.newVisitors)}
+        ${row('Returning Visitors', d.returningVisitors)}
+        ${row('Avg. Time on Page (est.)', d.avgTimeOnPageSeconds != null ? d.avgTimeOnPageSeconds + 's' : '—')}
+        ${row('Sessions (30d)', d.sessionCount)}
+      </div>
+      ${table('Top Pages', ['Path','Views'], d.topPages, p => `<tr><td class="td-main">${esc(p.path)}</td><td>${p.views}</td></tr>`)}
+      ${table('Referrer Sources', ['Source','Count'], d.referrers, r => `<tr><td class="td-main">${esc(r.source)}</td><td>${r.count}</td></tr>`)}
+      ${table('Countries', ['Country','Count'], d.countries, c => `<tr><td class="td-main">${esc(c.country)}</td><td>${c.count}</td></tr>`)}
+      ${table('Devices', ['Device','Count'], d.devices, x => `<tr><td class="td-main">${esc(x.device)}</td><td>${x.count}</td></tr>`)}
+      ${table('Browsers', ['Browser','Count'], d.browsers, x => `<tr><td class="td-main">${esc(x.browser)}</td><td>${x.count}</td></tr>`)}
+      ${table('Daily Views (last 30 days)', ['Date','Views','Unique Visitors'], d.dailyTimeseries, x => `<tr><td class="td-main">${esc(x.date)}</td><td>${x.views}</td><td>${x.uniqueVisitors}</td></tr>`)}
+    `;
+  } catch(e) { content.innerHTML = `<div class="adm-alert adm-alert--error">⚠️ ${esc(e.message)}</div>`; }
+}
+
+// ── Settings (bare-bones — plain table + modal form) ──
+async function renderSettings() {
+  content.innerHTML = '<div class="adm-loading">Loading…</div>';
+  const dbOk = await checkDB();
+  if (!dbOk) { content.innerHTML = dbBanner(); return; }
+  try {
+    const items = await api('/settings');
+    content.innerHTML = `
+      <div class="adm-card">
+        <div class="adm-card__header">
+          <span class="adm-card__title">Site Settings (${items.length})</span>
+          <button class="adm-btn-add" id="add-setting">+ Add Setting</button>
+        </div>
+        <table>
+          <thead><tr><th>Key</th><th>Value</th><th>Type</th><th>Group</th><th>Actions</th></tr></thead>
+          <tbody>${items.length ? items.map(s=>`<tr>
+            <td class="td-main">${esc(s.key)}</td>
+            <td style="max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(typeof s.value === 'object' ? JSON.stringify(s.value) : String(s.value))}</td>
+            <td><span class="badge badge--blue">${esc(s.type)}</span></td>
+            <td>${esc(s.group)}</td>
+            <td><div class="row-actions">
+              <button class="btn-edit" data-key="${esc(s.key)}">Edit</button>
+              <button class="btn-del" data-key="${esc(s.key)}">Delete</button>
+            </div></td>
+          </tr>`).join('') : '<tr><td colspan="5"><div class="adm-empty">No settings yet</div></td></tr>'}</tbody>
+        </table>
+      </div>`;
+    document.getElementById('add-setting')?.addEventListener('click', () => settingModal(null));
+    content.querySelectorAll('.btn-edit').forEach(b => b.addEventListener('click', () => settingModal(b.dataset.key, items.find(x=>x.key===b.dataset.key))));
+    content.querySelectorAll('.btn-del').forEach(b => b.addEventListener('click', () => del('/settings/'+encodeURIComponent(b.dataset.key), renderSettings)));
+  } catch(e) { content.innerHTML = `<div class="adm-alert adm-alert--error">⚠️ ${esc(e.message)}</div>`; }
+}
+
+function settingModal(key, d={}) {
+  const types = ['text','richtext','boolean','number','json','image'];
+  openModal(key?'Edit Setting':'New Setting', `
+    <div class="adm-field"><label class="adm-label">Key *</label><input class="adm-input" id="f-key" value="${esc(d.key||'')}" ${key?'readonly':''} placeholder="e.g. homepage.heroTitle" /></div>
+    <div class="adm-field"><label class="adm-label">Value *</label><textarea class="adm-textarea" id="f-value">${esc(typeof d.value === 'object' ? JSON.stringify(d.value) : (d.value ?? ''))}</textarea></div>
+    <div class="adm-field"><label class="adm-label">Type</label>
+      <select class="adm-select" id="f-type">${types.map(t=>`<option value="${t}" ${d.type===t?'selected':''}>${t}</option>`).join('')}</select></div>
+    <div class="adm-field"><label class="adm-label">Group</label><input class="adm-input" id="f-group" value="${esc(d.group||'general')}" /></div>
+    <div class="adm-field"><label class="adm-label">Label</label><input class="adm-input" id="f-label" value="${esc(d.label||'')}" /></div>
+  `, async () => {
+    const type = v('f-type');
+    let value = v('f-value');
+    if (type === 'boolean') value = value === 'true';
+    else if (type === 'number') value = parseFloat(value) || 0;
+    else if (type === 'json') { try { value = JSON.parse(value); } catch { toast('Invalid JSON in value field','error'); return; } }
+    const payload = { value, type, group: v('f-group')||'general', label: v('f-label') };
+    try {
+      if (key) {
+        await api('/settings/'+encodeURIComponent(key), { method:'PUT', body: JSON.stringify(payload) });
+      } else {
+        payload.key = v('f-key');
+        if (!payload.key) { toast('Key is required','error'); return; }
+        await api('/settings', { method:'POST', body: JSON.stringify(payload) });
+      }
+      toast(key?'Setting updated':'Setting created'); closeModal(); renderSettings();
+    } catch(e) { toast(e.message,'error'); }
+  });
+}
+
+// ── Admins (bare-bones — plain table + modal form) ──
+async function renderAdmins() {
+  content.innerHTML = '<div class="adm-loading">Loading…</div>';
+  const dbOk = await checkDB();
+  if (!dbOk) { content.innerHTML = dbBanner(); return; }
+  try {
+    const items = await api('/admins');
+    content.innerHTML = `
+      <div class="adm-card">
+        <div class="adm-card__header">
+          <span class="adm-card__title">Admin Accounts (${items.length})</span>
+          <button class="adm-btn-add" id="add-admin">+ Add Admin</button>
+        </div>
+        <table>
+          <thead><tr><th>Username</th><th>Role</th><th>Active</th><th>Invited By</th><th>Created</th><th>Actions</th></tr></thead>
+          <tbody>${items.length ? items.map(a=>`<tr>
+            <td class="td-main">${esc(a.username)}</td>
+            <td><span class="badge badge--blue">${esc(a.role)}</span></td>
+            <td><span class="badge ${a.active!==false?'badge--green':'badge--red'}">${a.active!==false?'Active':'Deactivated'}</span></td>
+            <td>${esc(a.invitedBy||'—')}</td>
+            <td>${a.createdAt ? new Date(a.createdAt).toLocaleDateString() : '—'}</td>
+            <td><div class="row-actions">
+              <button class="btn-edit" data-id="${a._id}">Edit</button>
+              <button class="btn-del"  data-id="${a._id}">Delete</button>
+            </div></td>
+          </tr>`).join('') : '<tr><td colspan="6"><div class="adm-empty">No admins</div></td></tr>'}</tbody>
+        </table>
+      </div>`;
+    document.getElementById('add-admin')?.addEventListener('click', () => adminModal(null));
+    content.querySelectorAll('.btn-edit').forEach(b => b.addEventListener('click', () => adminModal(b.dataset.id, items.find(x=>x._id===b.dataset.id))));
+    content.querySelectorAll('.btn-del').forEach(b  => b.addEventListener('click', () => del('/admins/'+b.dataset.id, renderAdmins)));
+  } catch(e) { content.innerHTML = `<div class="adm-alert adm-alert--error">⚠️ ${esc(e.message)}</div>`; }
+}
+
+function adminModal(id, d={}) {
+  const roles = ['super_admin','editor','support','viewer'];
+  if (id) {
+    // Edit existing: role + active only — no password reset here, out of bare-bones scope
+    openModal('Edit Admin', `
+      <div class="adm-field"><label class="adm-label">Username</label><input class="adm-input" value="${esc(d.username||'')}" disabled /></div>
+      <div class="adm-field"><label class="adm-label">Role</label>
+        <select class="adm-select" id="f-role">${roles.map(r=>`<option value="${r}" ${d.role===r?'selected':''}>${r}</option>`).join('')}</select></div>
+      <div class="adm-field" style="flex-direction:row;align-items:center;gap:8px;">
+        <input type="checkbox" id="f-active" ${d.active!==false?'checked':''} style="width:16px;height:16px;" />
+        <label class="adm-label" for="f-active" style="text-transform:none;font-size:13px;margin:0">Active</label>
+      </div>
+    `, async () => {
+      const payload = { role: v('f-role'), active: document.getElementById('f-active').checked };
+      try {
+        await api('/admins/'+id, { method:'PATCH', body: JSON.stringify(payload) });
+        toast('Admin updated'); closeModal(); renderAdmins();
+      } catch(e) { toast(e.message,'error'); }
+    });
+  } else {
+    openModal('New Admin', `
+      <div class="adm-field"><label class="adm-label">Username *</label><input class="adm-input" id="f-username" /></div>
+      <div class="adm-field"><label class="adm-label">Password * (8+ chars)</label><input class="adm-input" type="password" id="f-password" /></div>
+      <div class="adm-field"><label class="adm-label">Role *</label>
+        <select class="adm-select" id="f-role">${roles.map(r=>`<option value="${r}">${r}</option>`).join('')}</select></div>
+    `, async () => {
+      const payload = { username: v('f-username'), password: v('f-password'), role: v('f-role') };
+      try {
+        await api('/admins', { method:'POST', body: JSON.stringify(payload) });
+        toast('Admin created'); closeModal(); renderAdmins();
+      } catch(e) { toast(e.message,'error'); }
+    });
+  }
+}
+
+// ── API Keys (bare-bones — plain table + bulk-add form) ──
+async function renderApiKeys() {
+  content.innerHTML = '<div class="adm-loading">Loading…</div>';
+  const dbOk = await checkDB();
+  if (!dbOk) { content.innerHTML = dbBanner(); return; }
+  try {
+    const items = await api('/apikeys');
+    content.innerHTML = `
+      <div class="adm-card">
+        <div class="adm-card__header">
+          <span class="adm-card__title">API Key Pool (${items.length})</span>
+          <button class="adm-btn-add" id="add-keys">+ Bulk Add Keys</button>
+        </div>
+        <table>
+          <thead><tr><th>Provider</th><th>Key (masked)</th><th>Active</th><th>Last Used</th><th>Fail Count</th><th>Actions</th></tr></thead>
+          <tbody>${items.length ? items.map(k=>`<tr>
+            <td class="td-main">${esc(k.provider)}</td>
+            <td>••••${esc(k.last4)}</td>
+            <td><span class="badge ${k.active?'badge--green':'badge--red'}">${k.active?'Active':'Inactive'}</span></td>
+            <td>${k.lastUsed ? new Date(k.lastUsed).toLocaleString() : 'Never'}</td>
+            <td>${k.failCount||0}</td>
+            <td><div class="row-actions">
+              <button class="btn-edit" data-id="${k._id}" data-active="${k.active}">${k.active?'Deactivate':'Activate'}</button>
+              <button class="btn-del"  data-id="${k._id}">Delete</button>
+            </div></td>
+          </tr>`).join('') : '<tr><td colspan="6"><div class="adm-empty">No API keys in the pool yet</div></td></tr>'}</tbody>
+        </table>
+      </div>`;
+    document.getElementById('add-keys')?.addEventListener('click', () => apiKeyModal());
+    content.querySelectorAll('.btn-edit').forEach(b => b.addEventListener('click', async () => {
+      try {
+        await api('/apikeys/'+b.dataset.id, { method:'PATCH', body: JSON.stringify({ active: b.dataset.active !== 'true' }) });
+        toast('Key updated'); renderApiKeys();
+      } catch(e) { toast(e.message,'error'); }
+    }));
+    content.querySelectorAll('.btn-del').forEach(b => b.addEventListener('click', () => del('/apikeys/'+b.dataset.id, renderApiKeys)));
+  } catch(e) { content.innerHTML = `<div class="adm-alert adm-alert--error">⚠️ ${esc(e.message)}</div>`; }
+}
+
+function apiKeyModal() {
+  openModal('Bulk Add API Keys', `
+    <div class="adm-field"><label class="adm-label">Provider *</label><input class="adm-input" id="f-provider" placeholder="e.g. groq, openai" /></div>
+    <div class="adm-field"><label class="adm-label">Keys * (one per line or comma-separated)</label><textarea class="adm-textarea" id="f-keys" style="min-height:140px" placeholder="gsk_...&#10;gsk_..."></textarea></div>
+  `, async () => {
+    const payload = { provider: v('f-provider'), keys: document.getElementById('f-keys').value };
+    try {
+      const result = await api('/apikeys/bulk', { method:'POST', body: JSON.stringify(payload) });
+      toast(`${result.added} key(s) added`); closeModal(); renderApiKeys();
+    } catch(e) { toast(e.message,'error'); }
+  });
+}
+
 // ── Delete helper ──
 async function del(path, refresh) {
   if (!confirm('Delete this item? Cannot be undone.')) return;
@@ -895,6 +1123,10 @@ const sections = {
   faq:          renderFAQ,
   offers:       renderOffers,
   messages:     renderMessages,
+  analytics:    renderAnalytics,
+  settings:     renderSettings,
+  admins:       renderAdmins,
+  apikeys:      renderApiKeys,
 };
 
 // ── Nav ──

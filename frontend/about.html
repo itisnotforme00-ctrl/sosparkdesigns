@@ -213,7 +213,8 @@
     </div>
   </section>
 
-  <!-- ═══════════ TIMELINE — fixed layout, alternating center-line ═══════════ -->
+  <!-- ═══════════ STORY — R6 redesign: scroll-filling progress rail, replaces
+       the old alternating boxed-card timeline the owner called dated ═══════════ -->
   <section class="story" aria-labelledby="story-title">
     <div class="container">
       <div class="story__header">
@@ -221,45 +222,37 @@
         <h2 class="story__title reveal reveal-d1" id="story-title">How we got here.</h2>
       </div>
 
-      <div class="timeline-v2" role="list">
-        <div class="tl2-item" role="listitem" data-cinematic="left">
-          <div class="tl2-item__card">
-            <div class="tl2-item__year">2022</div>
-            <h3 class="tl2-item__title">The Spark Ignites</h3>
-            <p class="tl2-item__desc">Soahim began freelancing in graphic design and branding, quickly building a reputation for work that went beyond the brief. Early clients saw their engagement double and their brand confidence transform.</p>
-          </div>
-          <div class="tl2-item__node"><div class="tl2-item__dot"></div></div>
-          <div class="tl2-item__empty"></div>
+      <div class="rail-timeline" id="rail-timeline" role="list">
+        <div class="rail-timeline__track" aria-hidden="true">
+          <div class="rail-timeline__fill" id="rail-fill"></div>
         </div>
 
-        <div class="tl2-item" role="listitem" data-cinematic="right">
-          <div class="tl2-item__empty"></div>
-          <div class="tl2-item__node"><div class="tl2-item__dot"></div></div>
-          <div class="tl2-item__card">
-            <div class="tl2-item__year">2023</div>
-            <h3 class="tl2-item__title">Expanding the Stack</h3>
-            <p class="tl2-item__desc">Demand grew for web design and development alongside brand work. Soahim expanded his service range, delivering end-to-end creative for clients who wanted everything under one roof.</p>
-          </div>
+        <div class="rail-item" role="listitem" data-cinematic="right">
+          <span class="rail-item__dot" aria-hidden="true"></span>
+          <div class="rail-item__year">2022</div>
+          <h3 class="rail-item__title">The Spark Ignites</h3>
+          <p class="rail-item__desc">Soahim began freelancing in graphic design and branding, quickly building a reputation for work that went beyond the brief. Early clients saw their engagement double and their brand confidence transform.</p>
         </div>
 
-        <div class="tl2-item" role="listitem" data-cinematic="left">
-          <div class="tl2-item__card">
-            <div class="tl2-item__year">2024</div>
-            <h3 class="tl2-item__title">SoSpark Design is Born</h3>
-            <p class="tl2-item__desc">With a growing portfolio, a clear creative vision, and a team beginning to form, SoSpark Design launched as a full-service agency. Six services. One standard.</p>
-          </div>
-          <div class="tl2-item__node"><div class="tl2-item__dot"></div></div>
-          <div class="tl2-item__empty"></div>
+        <div class="rail-item" role="listitem" data-cinematic="right">
+          <span class="rail-item__dot" aria-hidden="true"></span>
+          <div class="rail-item__year">2023</div>
+          <h3 class="rail-item__title">Expanding the Stack</h3>
+          <p class="rail-item__desc">Demand grew for web design and development alongside brand work. Soahim expanded his service range, delivering end-to-end creative for clients who wanted everything under one roof.</p>
         </div>
 
-        <div class="tl2-item" role="listitem" data-cinematic="right">
-          <div class="tl2-item__empty"></div>
-          <div class="tl2-item__node"><div class="tl2-item__dot"></div></div>
-          <div class="tl2-item__card">
-            <div class="tl2-item__year">Now</div>
-            <h3 class="tl2-item__title">Building What's Next</h3>
-            <p class="tl2-item__desc">SoSpark continues to grow — adding talent, expanding capabilities, and working with brands across industries who want creative work that moves the needle.</p>
-          </div>
+        <div class="rail-item" role="listitem" data-cinematic="right">
+          <span class="rail-item__dot" aria-hidden="true"></span>
+          <div class="rail-item__year">2024</div>
+          <h3 class="rail-item__title">SoSpark Design is Born</h3>
+          <p class="rail-item__desc">With a growing portfolio, a clear creative vision, and a team beginning to form, SoSpark Design launched as a full-service agency. Six services. One standard.</p>
+        </div>
+
+        <div class="rail-item" role="listitem" data-cinematic="right">
+          <span class="rail-item__dot" aria-hidden="true"></span>
+          <div class="rail-item__year">Now</div>
+          <h3 class="rail-item__title">Building What's Next</h3>
+          <p class="rail-item__desc">SoSpark continues to grow — adding talent, expanding capabilities, and working with brands across industries who want creative work that moves the needle.</p>
         </div>
       </div>
     </div>
