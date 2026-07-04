@@ -525,7 +525,36 @@ async function renderOverview() {
     const [portfolio, msgs, testimonials, faqs] = await Promise.all([
       api('/portfolio'), api('/contact'), api('/testimonials'), api('/faq'),
     ]);
+
+    // Monitoring stats (feature 1 — traffic, active users, errors, uptime).
+    // Fetched separately with its own try/catch so a hiccup here doesn't
+    // take down the whole Overview page, which worked fine without this
+    // data before — a missing analytics stat shouldn't block the rest.
+    let health = { uptime: 0, envWarnings: [] };
+    let monitoring = { viewsLast24h: 0, activeUsers: 0, errorsLast24h: 0 };
+    try {
+      [health, monitoring] = await Promise.all([
+        fetch('/api/health').then(r => r.json()),
+        api('/analytics/dashboard'),
+      ]);
+    } catch (monErr) {
+      console.error('Monitoring stats unavailable:', monErr.message);
+    }
+
+    const envWarningsBanner = (health.envWarnings && health.envWarnings.length)
+      ? `<div class="adm-alert adm-alert--warning">⚠️ ${health.envWarnings.length} environment warning(s) — see server console or /api/health for details.</div>`
+      : '';
+
+    const uptimeHours = ((health.uptime || 0) / 3600).toFixed(1);
+
     content.innerHTML = `
+      ${envWarningsBanner}
+      <div class="adm-stats">
+        <div class="adm-stat"><div class="adm-stat__num">${monitoring.viewsLast24h}</div><div class="adm-stat__label">Site Views (24h)</div></div>
+        <div class="adm-stat"><div class="adm-stat__num" style="color:var(--coral)">${monitoring.activeUsers}</div><div class="adm-stat__label">Active Now</div></div>
+        <div class="adm-stat"><div class="adm-stat__num" style="color:${monitoring.errorsLast24h>0?'#dc2626':'var(--ink)'}">${monitoring.errorsLast24h}</div><div class="adm-stat__label">Errors (24h)</div></div>
+        <div class="adm-stat"><div class="adm-stat__num">${uptimeHours}h</div><div class="adm-stat__label">Server Uptime</div></div>
+      </div>
       <div class="adm-stats">
         <div class="adm-stat"><div class="adm-stat__num">${portfolio.length}</div><div class="adm-stat__label">Portfolio Projects</div></div>
         <div class="adm-stat"><div class="adm-stat__num" style="color:var(--coral)">${msgs.filter(m=>!m.read).length}</div><div class="adm-stat__label">Unread Messages</div></div>
