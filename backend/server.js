@@ -7,7 +7,7 @@ const path           = require('path');
 const helmet         = require('helmet');
 const rateLimit      = require('express-rate-limit');
 const analyticsLogger = require('./middleware/analyticsLogger'); // feature 2 — server-side visitor analytics
-const { ErrorLog }   = require('./models'); // feature 1 — error logging for the monitoring dashboard
+const { ErrorLog, Portfolio }   = require('./models'); // feature 1 error logging + sitemap portfolio list
 
 // ── DNS override ──
 // Required on this deployment's network: the standard mongodb+srv://
@@ -75,6 +75,12 @@ app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false 
 // ── Rate limiting ──
 app.use('/api/', rateLimit({ windowMs: 15 * 60 * 1000, max: 200, standardHeaders: true, legacyHeaders: false }));
 app.use('/api/chat', rateLimit({ windowMs: 60 * 1000, max: 60 }));
+// Scoped limiter for the public testimonial-submission endpoint (item 2) —
+// a public write endpoint is spam-prone in a way GET endpoints aren't.
+// 5/hour per IP is generous for a real visitor leaving one review, tight
+// enough to blunt a spam script. Submissions are also unapproved-by-default
+// regardless, so this is a second layer, not the only defense.
+app.use('/api/testimonials/submit', rateLimit({ windowMs: 60 * 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false }));
 
 // ── Middleware ──
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
@@ -89,8 +95,32 @@ app.use(express.urlencoded({ extended: true }));
 // frontend/ changes).
 app.use(analyticsLogger);
 
+// ── SEO: clean URLs, no .html extension in the address bar (item 1) ──
+// Any direct request for a raw *.html file 301-redirects to the equivalent
+// clean path (permanent redirect, so search engines consolidate ranking to
+// the clean URL and browsers update bookmarks). This must run BEFORE the
+// static file serving below, or express.static would just serve the .html
+// file directly at its own URL and this would never fire. Scoped to
+// top-level pages only via the regex (no slash allowed in the captured
+// group) — frontend/ has no nested page directories, and this never
+// matches /admin/* or /api/* paths since those don't end in a bare
+// "/something.html" pattern at all.
+app.get(/^\/([^/.]+)\.html$/, (req, res) => {
+  const name = req.params[0];
+  const clean = name === 'index' ? '/' : `/${name}`;
+  const queryIndex = req.url.indexOf('?');
+  const query = queryIndex !== -1 ? req.url.slice(queryIndex) : '';
+  res.redirect(301, clean + query);
+});
+
 // ── Static files ──
-app.use(express.static(path.join(__dirname, '../frontend')));
+// `extensions: ['html']` is what makes clean URLs actually resolve: a fresh
+// request for /about now tries frontend/about.html automatically, so the
+// URL bar never shows .html for a normal navigation in the first place.
+// This only kicks in for requests with no extension already, so it can't
+// interfere with /css/*.css, /js/*.js, or image requests. `index: 'index.html'`
+// keeps '/' serving the homepage exactly as before.
+app.use(express.static(path.join(__dirname, '../frontend'), { extensions: ['html'], index: 'index.html' }));
 app.use('/admin', express.static(path.join(__dirname, '../admin')));
 
 // ── MongoDB with retry + IPv4 fallback ──
@@ -119,6 +149,55 @@ async function connectMongo(retries = 4, delay = 1500) {
 }
 
 connectMongo();
+
+// ── SEO: sitemap.xml + robots.txt (item 3) ──
+// SITE_URL must be set to the real production domain for these to be
+// correct — falls back to localhost for local dev, which is fine to test
+// the XML/text structure but wrong for any real search engine to see.
+// Flagging clearly: add SITE_URL=https://yourrealdomain.com to your real
+// .env before this goes live; I'm not fabricating a placeholder domain
+// into the sitemap without you setting the real one.
+const SITE_URL = (process.env.SITE_URL || `http://localhost:${process.env.PORT || 3000}`).replace(/\/$/, '');
+
+// Known static top-level pages. If frontend/ ever adds new top-level pages
+// (as opposed to portfolio detail views, which are handled dynamically
+// below), they need to be added to this list manually — I have no way to
+// discover frontend/ page additions automatically without scanning that
+// folder, which is out of scope for this branch.
+const STATIC_PAGES = ['/', '/about', '/services', '/portfolio', '/team', '/faq', '/reviews', '/contact'];
+
+app.get('/sitemap.xml', async (req, res) => {
+  try {
+    const { Portfolio } = require('./models');
+    const staticUrls = STATIC_PAGES.map(p => `  <url><loc>${SITE_URL}${p}</loc></url>`).join('\n');
+
+    // Only included if the frontend actually has per-slug portfolio detail
+    // ROUTES (not just a same-page JS modal/lightbox) — if portfolio detail
+    // is purely client-side (a modal over portfolio.html, which is what the
+    // detail-modal.css/detail-view.js naming suggests), these URLs won't
+    // resolve to anything server-side and shouldn't be here. Flagging this
+    // explicitly rather than guessing: confirm with whoever owns frontend/
+    // whether /portfolio/:slug is a real server route before trusting this
+    // list to be correct for search engines.
+    let portfolioUrls = '';
+    if (mongoose.connection.readyState === 1) {
+      const projects = await Portfolio.find().select('slug updatedAt').lean();
+      portfolioUrls = projects
+        .map(p => `  <url><loc>${SITE_URL}/portfolio/${p.slug}</loc><lastmod>${p.updatedAt.toISOString().slice(0,10)}</lastmod></url>`)
+        .join('\n');
+    }
+
+    res.set('Content-Type', 'application/xml');
+    res.send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${staticUrls}\n${portfolioUrls}\n</urlset>`);
+  } catch (err) {
+    res.status(500).send('Error generating sitemap');
+  }
+});
+
+app.get('/robots.txt', (req, res) => {
+  res.set('Content-Type', 'text/plain');
+  res.send(`User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /api/\n\nSitemap: ${SITE_URL}/sitemap.xml\n`);
+});
 
 // ── DB status endpoint (for admin panel diagnostics) ──
 app.get('/api/health', (req, res) => {
