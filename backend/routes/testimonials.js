@@ -13,6 +13,19 @@ router.get('/', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Server error' }); }
 });
 
+// GET /api/testimonials/admin — admin: list ALL testimonials regardless of
+// approval status. Public GET '/' above only ever returns approved: true,
+// so without this route, visitor-submitted (unapproved) testimonials would
+// be completely invisible to admins — no way to see, let alone approve,
+// anything in the moderation queue. Gated at 'editor' rank to match PUT
+// '/:id' below, which is what actually performs the approve/reject action.
+router.get('/admin', auth, requireRole('editor'), async (req, res) => {
+  try {
+    const t = await Testimonial.find().sort({ approved: 1, createdAt: -1 }); // pending (approved:false) first
+    res.json(t);
+  } catch (err) { res.status(500).json({ error: 'Server error' }); }
+});
+
 // POST /api/testimonials/submit — PUBLIC: visitors submit their own review.
 // Per explicit decision: unapproved by default. This does NOT reuse the
 // admin POST '/' route below — that one trusts req.body wholesale (fine,
