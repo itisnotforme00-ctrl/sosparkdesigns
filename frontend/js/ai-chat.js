@@ -25,7 +25,7 @@
         </div>
       </div>
       <div class="ssc-input-row">
-        <input type="text" id="ssc-input" class="ssc-input" placeholder="Ask me anything…" autocomplete="off" maxlength="500" aria-label="Message" />
+        <textarea id="ssc-input" class="ssc-input" placeholder="Ask me anything…" maxlength="500" aria-label="Message" rows="1"></textarea>
         <button class="ssc-send" id="ssc-send" aria-label="Send">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
@@ -108,6 +108,7 @@
     .ssc-bubble {
       max-width: 82%; padding: 10px 14px; border-radius: 16px;
       font-size: 13px; line-height: 1.55;
+      white-space: pre-wrap; /* preserve user-entered line breaks visually, not just in the underlying text */
     }
     .ssc-msg--ai .ssc-bubble {
       background: rgba(237,233,225,0.8);
@@ -128,7 +129,7 @@
     .ssc-dot:nth-child(3) { animation-delay: 0.4s; }
     @keyframes typingBounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
     .ssc-input-row {
-      display: flex; align-items: center; gap: 8px;
+      display: flex; align-items: flex-end; gap: 8px;
       padding: 12px 14px;
       border-top: 1px solid rgba(200,195,188,0.3);
       background: rgba(255,253,250,0.6);
@@ -137,9 +138,12 @@
     .ssc-input {
       flex: 1; background: rgba(237,233,225,0.6);
       border: 1px solid rgba(200,195,188,0.5);
-      border-radius: 999px; padding: 9px 14px;
+      border-radius: 18px; padding: 9px 14px;
       font-size: 13px; color: #1A1714; outline: none;
       transition: border-color 200ms;
+      font-family: inherit; resize: none;
+      max-height: 120px; overflow-y: auto;
+      line-height: 1.4;
     }
     .ssc-input::placeholder { color: #8A8480; }
     .ssc-input:focus { border-color: #2563EB; }
@@ -219,6 +223,7 @@
     const text = input.value.trim();
     if (!text || loading) return;
     input.value = '';
+    autoGrow();
     loading = true;
     sendBtn.disabled = true;
 
@@ -274,6 +279,22 @@
   }
 
   sendBtn.addEventListener('click', send);
+
+  // Auto-grow (nice-to-have): expand height to fit content, up to the
+  // max-height set in CSS, where it starts scrolling instead of growing.
+  function autoGrow() {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+  }
+  input.addEventListener('input', autoGrow);
+
+  // Enter alone sends (existing behavior, unchanged). Shift+Enter is
+  // deliberately NOT intercepted here — with `input` now a real <textarea>,
+  // the browser's native default behavior on Shift+Enter is to insert a
+  // newline, which is exactly what we want. The old bug was that this used
+  // to be a single-line <input>, which cannot hold a newline at all
+  // regardless of this handler's logic — the fix is the element type change
+  // above, not this handler.
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   });

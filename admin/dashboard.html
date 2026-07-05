@@ -584,6 +584,8 @@ function portfolioModal(id, d={}) {
     <div class="adm-field"><label class="adm-label">Client</label><input class="adm-input" id="f-client" value="${esc(d.client||'')}" /></div>
     <div class="adm-field"><label class="adm-label">Year</label><input class="adm-input" type="number" id="f-year" value="${d.year||new Date().getFullYear()}" /></div>
     <div class="adm-field"><label class="adm-label">Description *</label><textarea class="adm-textarea" id="f-desc">${esc(d.description||'')}</textarea></div>
+    <div class="adm-field"><label class="adm-label">Cover Image URL</label><input class="adm-input" id="f-cover" value="${esc(d.coverImage||'')}" placeholder="https://.../image.jpg" /></div>
+    <div class="adm-field"><label class="adm-label">Additional Images (comma-separated URLs)</label><input class="adm-input" id="f-images" value="${(d.images||[]).join(', ')}" placeholder="https://.../1.jpg, https://.../2.jpg" /></div>
     <div class="adm-field"><label class="adm-label">Tags (comma separated)</label><input class="adm-input" id="f-tags" value="${(d.tags||[]).join(', ')}" /></div>
     <div class="adm-field" style="flex-direction:row;align-items:center;gap:8px;">
       <input type="checkbox" id="f-featured" ${d.featured?'checked':''} style="width:16px;height:16px;" />
@@ -592,6 +594,8 @@ function portfolioModal(id, d={}) {
   `, async () => {
     const payload = { title:v('f-title'), slug:v('f-slug'), category:v('f-cat'), client:v('f-client'),
       year:parseInt(v('f-year'))||new Date().getFullYear(), description:v('f-desc'),
+      coverImage:v('f-cover'),
+      images:v('f-images').split(',').map(t=>t.trim()).filter(Boolean),
       featured:document.getElementById('f-featured').checked,
       tags:v('f-tags').split(',').map(t=>t.trim()).filter(Boolean) };
     try {
@@ -863,9 +867,10 @@ function teamModal(id, d={}) {
     <div class="adm-field"><label class="adm-label">Name *</label><input class="adm-input" id="f-name" value="${esc(d.name||'')}" /></div>
     <div class="adm-field"><label class="adm-label">Role *</label><input class="adm-input" id="f-role" value="${esc(d.role||'')}" /></div>
     <div class="adm-field"><label class="adm-label">Bio *</label><textarea class="adm-textarea" id="f-bio">${esc(d.bio||'')}</textarea></div>
+    <div class="adm-field"><label class="adm-label">Photo URL</label><input class="adm-input" id="f-photo" value="${esc(d.photo||'')}" placeholder="https://.../photo.jpg" /></div>
     <div class="adm-field"><label class="adm-label">Order</label><input class="adm-input" type="number" id="f-ord" value="${d.order||0}" /></div>
   `, async () => {
-    const payload = { name:v('f-name'),role:v('f-role'),bio:v('f-bio'),order:parseInt(v('f-ord'))||0 };
+    const payload = { name:v('f-name'),role:v('f-role'),bio:v('f-bio'),photo:v('f-photo'),order:parseInt(v('f-ord'))||0 };
     try {
       id ? await api('/team/'+id,{method:'PUT', body:JSON.stringify(payload)})
           : await api('/team',   {method:'POST',body:JSON.stringify(payload)});
