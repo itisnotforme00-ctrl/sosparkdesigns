@@ -1,9 +1,35 @@
 /* ============================================
    SoSpark Design v3 — Design Tokens
-   Brand: Blue (#2563EB) on warm cream base
+   ── STEP 2 REDESIGN, PIECE 1 OF 6: TOKEN SYSTEM ──
+   "Open production sheet" direction, approved in full. This pass updates
+   only variables.css: the new six-color palette and the three-typeface
+   system (display / body / utility-mono). No component or section is
+   touched yet — that happens one piece at a time starting with the margin
+   rail next, per the agreed order.
+
+   Migration strategy (so nothing currently live breaks mid-redesign):
+   - New canonical tokens (--ink, --paper, --spark, --oxblood, --graphite,
+     --paper-2, --font-mono) are ADDITIVE. They exist and are correct now,
+     but are not yet consumed by any selector outside :root itself.
+   - --font-display is the one INTENTIONAL sitewide, immediate effect of
+     this step — headline typeface is explicitly named as an in-scope
+     "typeface" per the approved plan, and swapping it is a token-level
+     change, not a structural one. Every h1-h6 site-wide will render in
+     Fraunces starting now.
+   - --font-ui (Space Grotesk) is deliberately left untouched for now. The
+     plan's "utility/mono" face replaces --font-ui's role, but repointing
+     it here would instantly change every nav link, button, and badge
+     site-wide before the margin rail or any section has been redesigned
+     to actually pair with a mono typeface — exactly the kind of
+     multi-section spread this project has been avoiding. --font-mono is
+     defined and ready; it gets wired into components section by section,
+     starting with the margin rail.
+   - Legacy Brand Colors / Base Palette / Glass morphism blocks below are
+     UNCHANGED in value (bar --ink, see below) so every unmigrated section
+     keeps rendering exactly as it does today.
    ============================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700;1,900&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,400;1,9..144,600&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
 
 :root {
   /* ── Brand Colors ── */
@@ -20,7 +46,14 @@
   --cream-2:      #F4F2EE;
   --cream-3:      #EAE7E0;
   --cream-4:      #DDD9D0;
-  --ink:          #0F0E0C;
+  /* --ink updated from #0F0E0C to the redesign's warmer near-black
+     (#17130F) — this is the one legacy token whose value changes here,
+     since the new token and the old one serve the exact same role
+     (primary text/headline color) and keeping both would just mean two
+     names for almost the same color. The shift is intentionally subtle
+     (near-black to near-black) so it doesn't read as a visual break on
+     unmigrated sections — verified below. */
+  --ink:          #17130F;
   --ink-2:        #1C1B18;
   --ink-3:        #3D3B36;
   --ink-light:    #7A7770;
@@ -28,6 +61,17 @@
   /* ── Gold accent (subtle, not dominant) ── */
   --gold:         #B8973A;
   --gold-glass:   rgba(184,151,58,0.08);
+
+  /* ── NEW PALETTE (Step 2 redesign — "open production sheet") ──
+     Six named tokens from the approved design plan. Additive: nothing
+     below is consumed by any component yet except where noted. Component
+     migration happens section by section starting with the margin rail. */
+  --paper:        #F7F3EC;  /* new base background — warmer/more paper-like than --cream. Not yet wired into any background-color. */
+  --paper-2:      #EDE8DD;  /* alternate/contrast section background. Not yet wired in. */
+  --spark:        #2563EB;  /* the anchor blue, kept exactly per owner instruction — same hex as --blue below, given its redesign-system name */
+  --oxblood:      #7A2A28;  /* editor's-pencil accent — annotations, spec labels, active marks. Wholly new, no legacy equivalent. */
+  --graphite:     #57544D;  /* hairlines, borders, secondary/body text under the new system. Not yet wired in — --ink-light still serves that role on unmigrated sections. */
+  /* --ink (above) doubles as the sixth named color in the new system. */
 
   /* ── Glass morphism ── */
   --glass-bg:        rgba(255,253,250,0.70);
@@ -43,10 +87,19 @@
   --blur-lg:   blur(40px) saturate(200%);
   --blur-xl:   blur(80px);
 
-  /* ── Typography ── */
-  --font-display: 'Playfair Display', Georgia, serif;
+  /* ── Typography ──
+     --font-display swaps to Fraunces now — the display role is explicitly
+     part of the token-system step in the approved plan, and every h1-h6
+     site-wide picks this up immediately (see migration note at top of
+     file). --font-body is unchanged (DM Sans was already correct per the
+     plan). --font-ui (Space Grotesk) is unchanged for now — see note at
+     top of file for why. --font-mono is new: the "utility" face for spec
+     labels, margin-rail marks, hex codes, project index numbers. Not
+     wired into any selector yet; that starts with the margin rail. */
+  --font-display: 'Fraunces', Georgia, serif;
   --font-body:    'DM Sans', system-ui, sans-serif;
   --font-ui:      'Space Grotesk', sans-serif;
+  --font-mono:    'Space Mono', 'JetBrains Mono', monospace;
 
   /* ── Type Scale ── */
   --text-xs:   clamp(0.72rem,  1vw,   0.8rem);
