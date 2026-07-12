@@ -3,16 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Meet the SoSpark Design team — led by founder Soahim Rahman Tasin." />
-  <meta property="og:title" content="Team — SoSpark Design" />
+  <meta name="description" content="Meet the SoSpark Design team, led by founder Soahim Rahman Tasin." />
+  <meta property="og:title" content="Team | SoSpark Design" />
+  <meta property="og:description" content="Meet the SoSpark Design team, led by founder Soahim Rahman Tasin." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="https://sosparkdesign.com/assets/og-image.png" />
+  <meta property="og:url" content="https://sosparkdesign.com/team.html" />
+  <meta name="twitter:card" content="summary_large_image" />
   <meta name="theme-color" content="#FAFAF7" />
-  <title>Team — SoSpark Design</title>
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png" />
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+  <title>Team | SoSpark Design</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="css/variables.css" />
   <link rel="stylesheet" href="css/global.css" />
   <link rel="stylesheet" href="css/nav.css" />
   <link rel="stylesheet" href="css/footer.css" />
+  <link rel="stylesheet" href="css/margin-rail.css" />
   <link rel="stylesheet" href="css/pages.css" />
   <link rel="stylesheet" href="css/detail-modal.css" />
   <link rel="canonical" href="https://sosparkdesign.com/team.html" />
@@ -22,7 +32,7 @@
 <header role="banner">
   <nav class="nav" aria-label="Main navigation">
     <div class="nav__inner">
-      <a href="index.html" class="nav__logo" aria-label="SoSpark Design — Home"><img src="assets/logo-dark.svg" alt="SoSpark Design" class="nav__logo-img" /></a>
+      <a href="index.html" class="nav__logo" aria-label="SoSpark Design, Home"><img src="assets/logo-dark.svg" alt="SoSpark Design" class="nav__logo-img" /></a>
       <ul class="nav__links" role="list">
         <li><a href="index.html"     class="nav__link">Home</a></li>
         <li><a href="about.html"     class="nav__link">About</a></li>
@@ -66,7 +76,7 @@
         <article class="team-card" data-cinematic="up">
           <div class="team-card__photo">
             <span class="team-card__lead-badge">Founder &amp; CEO</span>
-            <span class="team-card__initials">SRT</span>
+            <span class="team-card__initials">SRT</span><span class="team-card__pending"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>Photo pending</span>
           </div>
           <div class="team-card__body">
             <h3 class="team-card__name">Soahim Rahman Tasin</h3>
@@ -80,7 +90,7 @@
         </article>
 
         <article class="team-card" data-cinematic="up">
-          <div class="team-card__photo"><span class="team-card__initials">AK</span></div>
+          <div class="team-card__photo"><span class="team-card__initials">AK</span><span class="team-card__pending"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>Photo pending</span></div>
           <div class="team-card__body">
             <h3 class="team-card__name">Amara Khan</h3>
             <p class="team-card__role">Senior Web Developer</p>
@@ -93,7 +103,7 @@
         </article>
 
         <article class="team-card" data-cinematic="up">
-          <div class="team-card__photo"><span class="team-card__initials">LM</span></div>
+          <div class="team-card__photo"><span class="team-card__initials">LM</span><span class="team-card__pending"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>Photo pending</span></div>
           <div class="team-card__body">
             <h3 class="team-card__name">Leo Martins</h3>
             <p class="team-card__role">Motion &amp; Video Editor</p>
@@ -106,7 +116,7 @@
         </article>
 
         <article class="team-card" data-cinematic="up">
-          <div class="team-card__photo"><span class="team-card__initials">RS</span></div>
+          <div class="team-card__photo"><span class="team-card__initials">RS</span><span class="team-card__pending"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>Photo pending</span></div>
           <div class="team-card__body">
             <h3 class="team-card__name">Riya Sharma</h3>
             <p class="team-card__role">Account &amp; Content Manager</p>
@@ -195,6 +205,7 @@
 <script src="js/cursor.js"></script>
 <script src="js/nav.js"></script>
 <script src="js/animations.js"></script>
+<script src="js/margin-rail.js"></script>
 <script src="js/detail-view.js"></script>
 <script src="js/ai-chat.js"></script>
 </body>

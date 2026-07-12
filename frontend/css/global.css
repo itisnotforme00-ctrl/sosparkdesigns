@@ -28,42 +28,13 @@ body::before {
   opacity: 1;
 }
 
-/* ── Persistent ambient BG blobs (always moving) ── */
-.ambient-blobs {
-  position: fixed; inset: 0; z-index: 0;
-  pointer-events: none; overflow: hidden;
-}
-
-.ambient-blob {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(80px);
-  /* Mouse-parallax offset (set via JS in animations.js), layered on top of
-     the blobFloat transform keyframes below using the standalone `translate`
-     property so the two motion sources don't fight over `transform`. */
-  translate: var(--parallax-x, 0) var(--parallax-y, 0);
-}
-
-.ambient-blob--1 {
-  width: 700px; height: 700px;
-  background: radial-gradient(circle, rgba(37,99,235,0.07) 0%, transparent 70%);
-  top: -15%; left: -10%;
-  animation: blobFloat1 20s ease-in-out infinite;
-}
-
-.ambient-blob--2 {
-  width: 500px; height: 500px;
-  background: radial-gradient(circle, rgba(184,151,58,0.06) 0%, transparent 70%);
-  top: 40%; right: -10%;
-  animation: blobFloat2 25s ease-in-out infinite;
-}
-
-.ambient-blob--3 {
-  width: 400px; height: 400px;
-  background: radial-gradient(circle, rgba(37,99,235,0.05) 0%, transparent 70%);
-  bottom: -10%; left: 30%;
-  animation: blobFloat3 18s ease-in-out infinite;
-}
+/* ── .ambient-blobs / .ambient-blob* rules REMOVED (Step 2 redesign,
+   piece 2/7) — nothing injects this container anymore; see the removed
+   block in animations.js and margin-rail.js/css, its replacement. The
+   blobFloat1/2/3 keyframes directly below are deliberately KEPT: they're
+   still used by section-local glows (hero__glow, cta-band__orb,
+   page-hero__glow, services-hero__glow, portfolio-hero__glow) on every
+   page until each of those sections gets redesigned on its own turn. */
 
 @keyframes blobFloat1 {
   0%,100% { transform: translate(0,0) scale(1); }

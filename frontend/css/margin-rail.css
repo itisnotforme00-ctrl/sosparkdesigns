@@ -1,0 +1,147 @@
+/* ============================================
+   SoSpark Design v3 — Margin Rail (Step 2 redesign, piece 2/7)
+   "Open production sheet" direction: a running section index, scroll-
+   position tick, and live spec block, printed down the edge of the page
+   instead of hidden. Global device — appears on every page via
+   margin-rail.js, which injects the markup so no HTML file needs its
+   body structure edited for this piece.
+
+   Positioning note: the rail starts at `top: var(--nav-h)`, i.e. directly
+   below the fixed nav pill, not beside it — the nav pill's own horizontal
+   footprint overlaps the rail's x-range (both start near the left edge),
+   but since the rail only occupies the vertical space *below* the nav,
+   there is no actual pixel overlap. z-index is kept well under the nav's
+   (1000) for the same reason, belt-and-braces.
+
+   aria-hidden: this is a supplementary visual device, not a real
+   navigation landmark — the site's actual navigation is the <nav>
+   element already on every page. Marking the rail aria-hidden avoids
+   presenting assistive tech with a confusing second, non-standard nav.
+   ============================================ */
+
+.margin-rail {
+  position: fixed;
+  top: var(--nav-h);
+  left: 0;
+  bottom: 0;
+  width: 76px;
+  z-index: 40;
+  display: none; /* shown only at >=900px, see media query below */
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-6);
+  padding-block: var(--sp-6);
+  background: var(--paper);
+  border-right: 1px solid rgba(87, 84, 77, 0.16); /* graphite hairline */
+  font-family: var(--font-mono);
+}
+
+.margin-rail__mark {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--graphite);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.margin-rail__index {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  align-items: center;
+  overflow: hidden;
+}
+.margin-rail__index-item {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  color: rgba(87, 84, 77, 0.5);
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
+  text-transform: uppercase;
+  transition: color var(--dur-base) var(--ease-out);
+}
+.margin-rail__index-item.is-active {
+  color: var(--oxblood);
+}
+
+.margin-rail__track-wrap {
+  position: relative;
+  width: 2px;
+  flex: 1;
+  min-height: 40px;
+  background: rgba(87, 84, 77, 0.16);
+  border-radius: var(--r-pill);
+}
+.margin-rail__track-fill {
+  position: absolute; top: 0; left: 0; width: 100%; height: 0%;
+  background: var(--spark);
+  border-radius: var(--r-pill);
+}
+
+.margin-rail__spec {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-shrink: 0;
+}
+.margin-rail__swatch {
+  width: 16px; height: 16px; border-radius: 4px;
+  background: var(--spark);
+  border: 1px solid rgba(87, 84, 77, 0.25);
+  flex-shrink: 0;
+}
+.margin-rail__hex,
+.margin-rail__font {
+  font-size: 9px;
+  letter-spacing: 0.03em;
+  color: var(--graphite);
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
+}
+
+@media (min-width: 900px) {
+  .margin-rail { display: flex; }
+  /* Reserve the rail's width so it never overlaps page content — this is
+     the one layout-shifting effect of this piece, and it's the intended
+     purpose of introducing a persistent margin rail at all. */
+  body { padding-left: 76px; }
+}
+
+/* ── Mobile: collapses to a small chip, bottom-left ──
+   Not a top strip (would compete with the fixed nav pill) and not
+   bottom-right (already occupied by the AI chat widget, ai-chat.js). */
+.margin-rail__mobile-chip {
+  display: none;
+  position: fixed;
+  left: 14px; bottom: 14px;
+  z-index: 500;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--paper);
+  border: 1px solid rgba(87, 84, 77, 0.2);
+  border-radius: var(--r-pill);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--graphite);
+  box-shadow: var(--glass-shadow);
+}
+.margin-rail__mobile-chip-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--spark);
+  flex-shrink: 0;
+}
+@media (max-width: 899px) {
+  .margin-rail__mobile-chip { display: flex; }
+}
+
+/* prefers-reduced-motion is already handled globally in variables.css
+   (transition-duration: 0.01ms !important on *), so no separate override
+   is needed here — the track-fill and index-item color transitions above
+   automatically collapse under that rule. */
