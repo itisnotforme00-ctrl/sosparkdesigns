@@ -9,7 +9,12 @@ router.get('/', async (req, res) => {
   try {
     const { category, featured } = req.query;
     const filter = {};
-    if (category) filter.category = category;
+    // Coerced to String explicitly: Express's query parser (qs) turns
+    // ?category[$ne]= into an OBJECT ({ $ne: '' }), which — if assigned to
+    // filter.category unmodified — would be interpreted by Mongoose as a
+    // query operator, letting a crafted query string manipulate this
+    // filter. String() collapses that back down to a harmless string.
+    if (category) filter.category = String(category);
     if (featured === 'true') filter.featured = true;
     const projects = await Portfolio.find(filter).sort({ order: 1, createdAt: -1 });
     res.json(projects);

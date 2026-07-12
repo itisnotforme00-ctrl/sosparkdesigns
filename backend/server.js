@@ -1,13 +1,14 @@
 require('dotenv').config();
-const dns            = require('dns');
-const express        = require('express');
-const mongoose       = require('mongoose');
-const cors           = require('cors');
-const path           = require('path');
-const helmet         = require('helmet');
-const rateLimit      = require('express-rate-limit');
-const analyticsLogger = require('./middleware/analyticsLogger'); // feature 2 — server-side visitor analytics
-const { ErrorLog, Portfolio }   = require('./models'); // feature 1 error logging + sitemap portfolio list
+const dns             = require('dns');
+const express         = require('express');
+const mongoose        = require('mongoose');
+const cors            = require('cors');
+const path            = require('path');
+const helmet          = require('helmet');
+const rateLimit       = require('express-rate-limit');
+const analyticsLogger = require('./middleware/analyticsLogger');
+const { UPLOAD_DIR }  = require('./middleware/upload'); // also ensures the upload dir exists at boot
+const { ErrorLog, Portfolio } = require('./models');
 
 // ── DNS override ──
 // Required on this deployment's network: the standard mongodb+srv://
@@ -23,15 +24,32 @@ dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 const app = express();
 
+// ── Trust proxy ──
+// REQUIRED for express-rate-limit (and any other IP-based logic) to see the
+// real client IP instead of a reverse proxy's IP, if this app is deployed
+// behind one (Nginx, a load balancer, Cloudflare, Render/Heroku's router,
+// etc). Without this, EVERY rate limiter in this file silently either
+// throttles all visitors as a single IP, or breaks outright — including the
+// login brute-force limiter below, which defeats its whole purpose.
+//
+// Deliberately NOT set to `true` unconditionally — that trusts the
+// left-most X-Forwarded-For hop unconditionally, which is spoofable by the
+// client itself if there's no proxy actually in front of the app. Set
+// TRUST_PROXY_HOPS in .env to the exact number of proxies you have in front
+// of this app (usually 1). Defaults to not trusting any proxy, which is the
+// safe default for direct/local deployment.
+const trustProxyHops = parseInt(process.env.TRUST_PROXY_HOPS, 10);
+if (!Number.isNaN(trustProxyHops) && trustProxyHops > 0) {
+  app.set('trust proxy', trustProxyHops);
+}
+
 // ── B4: Env-var validation on boot ──
 // The root cause documented in the project brief (a placeholder MONGODB_URI
 // silently breaking login for hours) happened because nothing checked env
 // values against known placeholder patterns from .env.example. This check
 // runs once at boot, logs loudly to the console, and is also exposed via
 // /api/health so the admin panel (or anyone curling it) can see it without
-// SSH access to the server's console output. This is intentionally the
-// highest-leverage fix in this PR — it converts silent multi-hour failures
-// into immediate, obvious ones.
+// SSH access to the server's console output.
 function checkEnvPlaceholders() {
   const issues = [];
 
@@ -59,6 +77,10 @@ function checkEnvPlaceholders() {
     issues.push('API_KEY_ENCRYPTION_SECRET is not set — the API key pool (admin panel) is falling back to JWT_SECRET (or an insecure default) to encrypt stored provider keys. Set a dedicated secret for production.');
   }
 
+  if (Number.isNaN(trustProxyHops) || trustProxyHops <= 0) {
+    issues.push('TRUST_PROXY_HOPS is not set — if this app runs behind any reverse proxy/load balancer, rate limiting will not see real client IPs. Set TRUST_PROXY_HOPS to the number of proxies in front of this app (usually 1) if applicable.');
+  }
+
   return issues;
 }
 
@@ -75,36 +97,44 @@ app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false 
 // ── Rate limiting ──
 app.use('/api/', rateLimit({ windowMs: 15 * 60 * 1000, max: 200, standardHeaders: true, legacyHeaders: false }));
 app.use('/api/chat', rateLimit({ windowMs: 60 * 1000, max: 60 }));
-// Scoped limiter for the public testimonial-submission endpoint (item 2) —
-// a public write endpoint is spam-prone in a way GET endpoints aren't.
-// 5/hour per IP is generous for a real visitor leaving one review, tight
-// enough to blunt a spam script. Submissions are also unapproved-by-default
-// regardless, so this is a second layer, not the only defense.
+
+// Dedicated, much tighter limiter for login — the generic 200/15min limit
+// above is shared across ALL API traffic and is nowhere near strict enough
+// to stop credential-stuffing against admin accounts on its own.
+app.use('/api/auth/login', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts. Try again later.' },
+}));
+
+// Public write endpoints — spam-prone in a way GET endpoints aren't.
 app.use('/api/testimonials/submit', rateLimit({ windowMs: 60 * 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false }));
+app.use('/api/contact', rateLimit({ windowMs: 60 * 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false }));
+
+// Video uploads are expensive (disk + bandwidth) even from a trusted admin
+// session — worth throttling independent of the role check itself.
+app.use('/api/videos/upload', rateLimit({ windowMs: 60 * 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false }));
 
 // ── Middleware ──
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
-app.use(express.json({ limit: '10kb' }));
+// Raised from the previous 10kb: that limit only left room for roughly
+// 150-175 pasted API keys before B6's own "bulk-add large batches" feature
+// started rejecting legitimate requests with an opaque 413. 1mb comfortably
+// covers thousands of keys or a long-form blog post; actual video files
+// never pass through this parser at all (multer reads multipart/form-data
+// directly, off the request stream, bypassing express.json entirely).
+app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // ── Visitor analytics (feature 2) ──
 // Must run before express.static below, since it only attaches a
 // res.on('finish') listener and calls next() — it doesn't consume the
-// response, so static file serving still works exactly as before. See
-// middleware/analyticsLogger.js for why this is server-side only (no
-// frontend/ changes).
+// response, so static file serving still works exactly as before.
 app.use(analyticsLogger);
 
-// ── SEO: clean URLs, no .html extension in the address bar (item 1) ──
-// Any direct request for a raw *.html file 301-redirects to the equivalent
-// clean path (permanent redirect, so search engines consolidate ranking to
-// the clean URL and browsers update bookmarks). This must run BEFORE the
-// static file serving below, or express.static would just serve the .html
-// file directly at its own URL and this would never fire. Scoped to
-// top-level pages only via the regex (no slash allowed in the captured
-// group) — frontend/ has no nested page directories, and this never
-// matches /admin/* or /api/* paths since those don't end in a bare
-// "/something.html" pattern at all.
+// ── SEO: clean URLs, no .html extension in the address bar ──
 app.get(/^\/([^/.]+)\.html$/, (req, res) => {
   const name = req.params[0];
   const clean = name === 'index' ? '/' : `/${name}`;
@@ -114,14 +144,17 @@ app.get(/^\/([^/.]+)\.html$/, (req, res) => {
 });
 
 // ── Static files ──
-// `extensions: ['html']` is what makes clean URLs actually resolve: a fresh
-// request for /about now tries frontend/about.html automatically, so the
-// URL bar never shows .html for a normal navigation in the first place.
-// This only kicks in for requests with no extension already, so it can't
-// interfere with /css/*.css, /js/*.js, or image requests. `index: 'index.html'`
-// keeps '/' serving the homepage exactly as before.
 app.use(express.static(path.join(__dirname, '../frontend'), { extensions: ['html'], index: 'index.html' }));
 app.use('/admin', express.static(path.join(__dirname, '../admin')));
+
+// ── Uploaded video files ──
+// express.static (via the underlying 'send' module) already supports HTTP
+// Range requests out of the box, so video scrubbing/seeking works with no
+// extra streaming code here. Only files that exist on disk under UPLOAD_DIR
+// are servable — there's no directory listing, and filenames are always the
+// server-generated random names from middleware/upload.js, never
+// user-supplied paths.
+app.use('/uploads/videos', express.static(UPLOAD_DIR));
 
 // ── MongoDB with retry + IPv4 fallback ──
 const MONGO_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/sosparkdesign';
@@ -150,20 +183,9 @@ async function connectMongo(retries = 4, delay = 1500) {
 
 connectMongo();
 
-// ── SEO: sitemap.xml + robots.txt (item 3) ──
-// SITE_URL must be set to the real production domain for these to be
-// correct — falls back to localhost for local dev, which is fine to test
-// the XML/text structure but wrong for any real search engine to see.
-// Flagging clearly: add SITE_URL=https://yourrealdomain.com to your real
-// .env before this goes live; I'm not fabricating a placeholder domain
-// into the sitemap without you setting the real one.
+// ── SEO: sitemap.xml + robots.txt ──
 const SITE_URL = (process.env.SITE_URL || `http://localhost:${process.env.PORT || 3000}`).replace(/\/$/, '');
 
-// Known static top-level pages. If frontend/ ever adds new top-level pages
-// (as opposed to portfolio detail views, which are handled dynamically
-// below), they need to be added to this list manually — I have no way to
-// discover frontend/ page additions automatically without scanning that
-// folder, which is out of scope for this branch.
 const STATIC_PAGES = ['/', '/about', '/services', '/portfolio', '/team', '/faq', '/reviews', '/contact'];
 
 app.get('/sitemap.xml', async (req, res) => {
@@ -171,14 +193,6 @@ app.get('/sitemap.xml', async (req, res) => {
     const { Portfolio } = require('./models');
     const staticUrls = STATIC_PAGES.map(p => `  <url><loc>${SITE_URL}${p}</loc></url>`).join('\n');
 
-    // Only included if the frontend actually has per-slug portfolio detail
-    // ROUTES (not just a same-page JS modal/lightbox) — if portfolio detail
-    // is purely client-side (a modal over portfolio.html, which is what the
-    // detail-modal.css/detail-view.js naming suggests), these URLs won't
-    // resolve to anything server-side and shouldn't be here. Flagging this
-    // explicitly rather than guessing: confirm with whoever owns frontend/
-    // whether /portfolio/:slug is a real server route before trusting this
-    // list to be correct for search engines.
     let portfolioUrls = '';
     if (mongoose.connection.readyState === 1) {
       const projects = await Portfolio.find().select('slug updatedAt').lean();
@@ -216,6 +230,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/chat',         require('./routes/chat'));
 app.use('/api/contact',      require('./routes/contact'));
 app.use('/api/portfolio',    require('./routes/portfolio'));
+app.use('/api/blog',         require('./routes/blog'));
 app.use('/api/services',     require('./routes/services'));
 app.use('/api/team',         require('./routes/team'));
 app.use('/api/testimonials', require('./routes/testimonials'));
@@ -226,6 +241,7 @@ app.use('/api/apikeys',      require('./routes/apikeys'));    // B6 — admin-on
 app.use('/api/analytics',    require('./routes/analytics'));  // feature 2 — visitor analytics + dashboard stats
 app.use('/api/settings',     require('./routes/settings'));   // feature 1 — editable content/config without redeploy
 app.use('/api/admins',       require('./routes/admins'));     // feature 4 — multi-admin & role management
+app.use('/api/videos',       require('./routes/videos'));     // new — server-stored + YouTube-linked videos
 
 // ── SPA catch-alls ──
 app.get('/admin/*', (req, res) => res.sendFile(path.join(__dirname, '../admin/dashboard.html')));

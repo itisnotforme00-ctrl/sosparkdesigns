@@ -4,6 +4,7 @@ const auth    = require('../middleware/auth');
 const { requireRole } = require('../middleware/permissions');
 const { Testimonial } = require('../models');
 
+// GET /api/testimonials — public, approved only
 router.get('/', async (req, res) => {
   try {
     const filter = { approved: true };
@@ -13,64 +14,40 @@ router.get('/', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Server error' }); }
 });
 
-// GET /api/testimonials/admin — admin: list ALL testimonials regardless of
-// approval status. Public GET '/' above only ever returns approved: true,
-// so without this route, visitor-submitted (unapproved) testimonials would
-// be completely invisible to admins — no way to see, let alone approve,
-// anything in the moderation queue. Gated at 'editor' rank to match PUT
-// '/:id' below, which is what actually performs the approve/reject action.
+// GET /api/testimonials/admin — admin: ALL testimonials (pending + approved),
+// for moderation. Same pattern as routes/blog.js's GET /admin. Registered
+// above any '/:id'-shaped route on purpose — there isn't one currently, but
+// keeping the ordering discipline consistent avoids Express ever matching
+// "admin" as an :id param if one gets added later.
 router.get('/admin', auth, requireRole('editor'), async (req, res) => {
   try {
-    const t = await Testimonial.find().sort({ approved: 1, createdAt: -1 }); // pending (approved:false) first
+    const t = await Testimonial.find().sort({ createdAt: -1 });
     res.json(t);
   } catch (err) { res.status(500).json({ error: 'Server error' }); }
 });
 
-// POST /api/testimonials/submit — PUBLIC: visitors submit their own review.
-// Per explicit decision: unapproved by default. This does NOT reuse the
-// admin POST '/' route below — that one trusts req.body wholesale (fine,
-// since it's admin-only). This route only accepts a fixed whitelist of
-// fields and forces `approved: false` and `featured: false` server-side
-// regardless of what's in the request body, so a public submission can
-// never self-approve or self-feature itself onto the live site. It stays
-// invisible to GET '/' (which only returns approved: true) until an admin
-// approves it via the existing PUT '/:id' route in the dashboard.
-// Rate-limited separately in server.js to reduce spam risk on a public
-// write endpoint.
+// POST /api/testimonials/submit — public visitor submission.
+// Whitelisted fields only. approved/featured are FORCED false server-side
+// regardless of what's in the request body (a crafted body trying to set
+// approved: true directly is ignored). Rate-limited in server.js
+// (5/hour/IP) as a second layer against spam.
 router.post('/submit', async (req, res) => {
   try {
     const { name, role, company, text, rating, initials } = req.body;
-
-    if (!name || !role || !text) {
-      return res.status(400).json({ error: 'name, role, and text are required' });
+    if (!name || !text) {
+      return res.status(400).json({ error: 'name and text are required' });
     }
-    if (String(name).length > 200 || String(role).length > 200) {
-      return res.status(400).json({ error: 'name and role must be 200 characters or fewer' });
-    }
-    if (String(text).length > 2000) {
-      return res.status(400).json({ error: 'text must be 2000 characters or fewer' });
-    }
-
-    const numericRating = parseInt(rating);
-    const safeRating = (numericRating >= 1 && numericRating <= 5) ? numericRating : 5;
-
-    await Testimonial.create({
-      name: String(name).trim(),
-      role: String(role).trim(),
-      company: company ? String(company).trim().slice(0, 200) : '',
-      text: String(text).trim(),
-      rating: safeRating,
-      initials: initials ? String(initials).trim().slice(0, 3) : '',
-      approved: false, // forced — never trust client input for this
-      featured: false, // forced — never trust client input for this
+    const testimonial = await Testimonial.create({
+      name,
+      role,
+      company,
+      text,
+      rating,
+      initials,
+      approved: false,
+      featured: false,
     });
-
-    // Deliberately not returning the created document (it's unapproved,
-    // not yet public) — just a confirmation message.
-    res.status(201).json({
-      success: true,
-      message: 'Thank you! Your review has been submitted and will appear once approved.',
-    });
+    res.status(201).json({ success: true, id: testimonial._id });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
