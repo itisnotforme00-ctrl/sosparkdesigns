@@ -122,30 +122,43 @@ adminSchema.set('toJSON', {
 });
 
 // ── Site Settings (feature 1 — editable config without redeploy) ──
+// Generic key/value store so content/config the owner wants to change after
+// launch doesn't require editing code + redeploying. `value` is Mixed so it
+// can hold a string, boolean, number, or small JSON object depending on
+// `type`. Frontend marketing pages aren't touched by this project, but this
+// gives them (or a future admin UI) a real API to read from instead of
+// hardcoded values.
 const settingSchema = new Schema({
-  key:       { type: String, required: true, unique: true, trim: true },
+  key:       { type: String, required: true, unique: true, trim: true },      // e.g. "homepage.heroTitle", "site.maintenanceMode"
   value:     { type: Schema.Types.Mixed, required: true },
   type:      { type: String, enum: ['text', 'richtext', 'boolean', 'number', 'json', 'image'], default: 'text' },
-  group:     { type: String, default: 'general', trim: true, lowercase: true },
-  label:     { type: String, default: '' },
-  updatedBy: { type: String, default: '' },
+  group:     { type: String, default: 'general', trim: true, lowercase: true }, // for grouping in an admin UI, e.g. "homepage", "contact", "general"
+  label:     { type: String, default: '' },   // human-readable label for the admin UI
+  updatedBy: { type: String, default: '' },   // username of the admin who last changed it
 }, { timestamps: true });
 
 // ── Page View (feature 2 — server-side visitor analytics) ──
+// Populated by middleware/analyticsLogger.js on every non-API, non-admin,
+// non-static-asset GET request that passes through this Express app (which
+// is all frontend traffic, since server.js serves frontend/ via
+// express.static). No client-side tracking script is used or required —
+// see the analyticsLogger middleware for why.
 const pageViewSchema = new Schema({
   path:           { type: String, required: true, index: true },
   referrer:       { type: String, default: '' },
-  referrerSource: { type: String, default: 'direct', index: true },
-  country:        { type: String, default: 'Unknown', index: true },
-  device:         { type: String, default: 'unknown' },
+  referrerSource: { type: String, default: 'direct', index: true }, // 'direct' | 'google' | 'facebook' | 'instagram' | 'twitter/x' | 'linkedin' | 'youtube' | 'bing' | 'duckduckgo' | 'internal' | 'other'
+  country:        { type: String, default: 'Unknown', index: true }, // from cf-ipcountry / x-country-code proxy header if present, else 'Unknown'
+  device:         { type: String, default: 'unknown' }, // 'desktop' | 'mobile' | 'tablet'
   browser:        { type: String, default: 'unknown' },
-  visitorId:      { type: String, default: '', index: true },
+  visitorId:      { type: String, default: '', index: true }, // first-party cookie value, used for unique-visitor + active-user counts
   statusCode:     { type: Number, default: 200 },
 }, { timestamps: true });
 
 pageViewSchema.index({ createdAt: -1 });
 
 // ── Error Log (feature 1 — dashboard error visibility) ──
+// Populated by the global error handler in server.js so the dashboard can
+// show a real error count/feed instead of only console output.
 const errorLogSchema = new Schema({
   message:    { type: String, required: true },
   stack:      { type: String, default: '' },
@@ -157,23 +170,41 @@ const errorLogSchema = new Schema({
 errorLogSchema.index({ createdAt: -1 });
 
 // ── Blog Post ──
+// Content stored as Markdown, not raw HTML — a deliberate call (the brief
+// left this open). Storing raw HTML would mean whatever the frontend does
+// to render it needs its own sanitization discipline to avoid stored XSS;
+// Markdown is inert until a renderer turns it into HTML, which is a safer
+// default for a basic textarea editor with no rich-text toolbar. If the
+// frontend/design worker wants a WYSIWYG editor later, a markdown source
+// format doesn't block that — most rich-text editors can round-trip
+// markdown fine — but going the other way (starting with raw HTML) would
+// be harder to walk back safely.
 const blogPostSchema = new Schema({
   title:       { type: String, required: true, trim: true },
   slug:        { type: String, required: true, unique: true, lowercase: true },
   excerpt:     { type: String, required: true },
-  content:     { type: String, required: true }, // Markdown — see routes/blog.js
+  content:     { type: String, required: true }, // Markdown — see comment above
   coverImage:  { type: String, default: '' },
   tags:        [String],
-  author:      { type: String, default: 'Soahim Rahman Tasin' },
+  author:      { type: String, default: 'Soahim Rahman Tasin' }, // defaults to the founder, per chat.js's system prompt
   published:   { type: Boolean, default: false },
   publishedAt: { type: Date, default: null },
 }, { timestamps: true });
 
 // ── API Key Pool (B6) ──
+// Storage/CRUD half of bulk API key management. The rotation-and-failover
+// logic that actually USES these keys during a chat request belongs to the
+// API-agent worker in routes/chat.js — this model and its routes only
+// manage the pool (add in bulk, list masked, deactivate, delete).
+//
+// `encryptedKey` is never returned in any API response — see the toJSON
+// transform below, plus routes/apikeys.js never selects it into its
+// responses in the first place (defense in depth). Only `last4` (a masked
+// preview) is ever shown, even to the admin panel, per the brief.
 const apiKeySchema = new Schema({
-  provider:     { type: String, required: true, trim: true, lowercase: true },
-  encryptedKey: { type: String, required: true, select: false },
-  last4:        { type: String, required: true },
+  provider:     { type: String, required: true, trim: true, lowercase: true }, // e.g. 'groq', 'openai'
+  encryptedKey: { type: String, required: true, select: false }, // AES-256-GCM ciphertext, see utils/keyCrypto.js
+  last4:        { type: String, required: true }, // masked preview only, e.g. "xk3f"
   active:       { type: Boolean, default: true },
   lastUsed:     { type: Date, default: null },
   failCount:    { type: Number, default: 0 },
@@ -211,22 +242,22 @@ const videoSchema = new Schema({
   source:       { type: String, enum: ['upload', 'youtube'], required: true },
 
   // 'upload' fields (empty/default for 'youtube' videos)
-  filename:     { type: String, default: '' },
-  originalName: { type: String, default: '' },
+  filename:     { type: String, default: '' }, // server-generated, disk filename only
+  originalName: { type: String, default: '' }, // client's original filename, DISPLAY ONLY
   mimeType:     { type: String, default: '' },
-  fileSize:     { type: Number, default: 0 },
+  fileSize:     { type: Number, default: 0 },   // bytes
 
   // 'youtube' fields (empty/default for 'upload' videos)
-  youtubeId:    { type: String, default: '' },
-  youtubeUrl:   { type: String, default: '' },
+  youtubeId:    { type: String, default: '' },  // 11-char ID, extracted server-side, never trusted raw from client
+  youtubeUrl:   { type: String, default: '' },  // original URL as submitted, kept for reference only
 
   thumbnail:    { type: String, default: '' },
   category:     { type: String, default: '', trim: true },
   tags:         [String],
   featured:     { type: Boolean, default: false },
-  active:       { type: Boolean, default: true },
+  active:       { type: Boolean, default: true }, // unpublish without deleting
   order:        { type: Number, default: 0 },
-  uploadedBy:   { type: String, default: '' },
+  uploadedBy:   { type: String, default: '' },    // admin username, audit trail
 }, { timestamps: true });
 
 module.exports = {
