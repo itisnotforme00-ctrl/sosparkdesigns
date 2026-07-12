@@ -95,7 +95,7 @@ const contactSchema = new Schema({
 // ── Admin User (RBAC — feature 4) ──
 // Role hierarchy, enforced by middleware/permissions.js:
 //   super_admin — full access: manage admins/roles, site settings, API keys, all content
-//   editor      — manage content (portfolio/services/team/testimonials/faq/offers),
+//   editor      — manage content (portfolio/services/team/testimonials/faq/offers/blog/videos),
 //                 cannot manage admins, cannot change site settings or API keys
 //   support     — read + respond to contact messages only, plus analytics viewing
 //   viewer      — read-only: dashboard stats + analytics, no mutations anywhere
@@ -169,6 +169,28 @@ const errorLogSchema = new Schema({
 
 errorLogSchema.index({ createdAt: -1 });
 
+// ── Blog Post ──
+// Content stored as Markdown, not raw HTML — a deliberate call (the brief
+// left this open). Storing raw HTML would mean whatever the frontend does
+// to render it needs its own sanitization discipline to avoid stored XSS;
+// Markdown is inert until a renderer turns it into HTML, which is a safer
+// default for a basic textarea editor with no rich-text toolbar. If the
+// frontend/design worker wants a WYSIWYG editor later, a markdown source
+// format doesn't block that — most rich-text editors can round-trip
+// markdown fine — but going the other way (starting with raw HTML) would
+// be harder to walk back safely.
+const blogPostSchema = new Schema({
+  title:       { type: String, required: true, trim: true },
+  slug:        { type: String, required: true, unique: true, lowercase: true },
+  excerpt:     { type: String, required: true },
+  content:     { type: String, required: true }, // Markdown — see comment above
+  coverImage:  { type: String, default: '' },
+  tags:        [String],
+  author:      { type: String, default: 'Soahim Rahman Tasin' }, // defaults to the founder, per chat.js's system prompt
+  published:   { type: Boolean, default: false },
+  publishedAt: { type: Date, default: null },
+}, { timestamps: true });
+
 // ── API Key Pool (B6) ──
 // Storage/CRUD half of bulk API key management. The rotation-and-failover
 // logic that actually USES these keys during a chat request belongs to the
@@ -195,6 +217,49 @@ apiKeySchema.set('toJSON', {
   },
 });
 
+// ── Video (new — server-stored uploads AND YouTube-linked videos) ──
+//
+// One schema, two source types, distinguished by `source`:
+//   'upload'  — the actual video file lives on this server's disk, under
+//               middleware/upload.js's UPLOAD_DIR. `filename` is a
+//               server-generated random name (NEVER the client's original
+//               filename — see middleware/upload.js for why). `originalName`
+//               is kept only as a display label, never used to touch the
+//               filesystem.
+//   'youtube' — no file is stored here at all. Only the extracted 11-char
+//               YouTube video ID + the original URL are kept. `thumbnail`
+//               defaults to YouTube's own predictable thumbnail CDN URL
+//               (img.youtube.com/vi/<id>/hqdefault.jpg) so no YouTube API
+//               key/quota is needed just to show a preview image.
+//
+// Deleting a Video document with source:'upload' also deletes the actual
+// file from disk (see routes/videos.js DELETE handler) — without that,
+// every delete would silently leak disk space forever.
+const videoSchema = new Schema({
+  title:        { type: String, required: true, trim: true },
+  slug:         { type: String, required: true, unique: true, lowercase: true },
+  description:  { type: String, default: '' },
+  source:       { type: String, enum: ['upload', 'youtube'], required: true },
+
+  // 'upload' fields (empty/default for 'youtube' videos)
+  filename:     { type: String, default: '' }, // server-generated, disk filename only
+  originalName: { type: String, default: '' }, // client's original filename, DISPLAY ONLY
+  mimeType:     { type: String, default: '' },
+  fileSize:     { type: Number, default: 0 },   // bytes
+
+  // 'youtube' fields (empty/default for 'upload' videos)
+  youtubeId:    { type: String, default: '' },  // 11-char ID, extracted server-side, never trusted raw from client
+  youtubeUrl:   { type: String, default: '' },  // original URL as submitted, kept for reference only
+
+  thumbnail:    { type: String, default: '' },
+  category:     { type: String, default: '', trim: true },
+  tags:         [String],
+  featured:     { type: Boolean, default: false },
+  active:       { type: Boolean, default: true }, // unpublish without deleting
+  order:        { type: Number, default: 0 },
+  uploadedBy:   { type: String, default: '' },    // admin username, audit trail
+}, { timestamps: true });
+
 module.exports = {
   Portfolio:   mongoose.model('Portfolio',   portfolioSchema),
   Service:     mongoose.model('Service',     serviceSchema),
@@ -208,4 +273,6 @@ module.exports = {
   Setting:     mongoose.model('Setting',     settingSchema),
   PageView:    mongoose.model('PageView',    pageViewSchema),
   ErrorLog:    mongoose.model('ErrorLog',    errorLogSchema),
+  BlogPost:    mongoose.model('BlogPost',    blogPostSchema),
+  Video:       mongoose.model('Video',       videoSchema),
 };

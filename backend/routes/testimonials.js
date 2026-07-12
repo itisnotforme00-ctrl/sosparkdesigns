@@ -4,6 +4,7 @@ const auth    = require('../middleware/auth');
 const { requireRole } = require('../middleware/permissions');
 const { Testimonial } = require('../models');
 
+// GET /api/testimonials — public, approved only
 router.get('/', async (req, res) => {
   try {
     const filter = { approved: true };
@@ -11,6 +12,76 @@ router.get('/', async (req, res) => {
     const t = await Testimonial.find(filter).sort({ createdAt: -1 });
     res.json(t);
   } catch (err) { res.status(500).json({ error: 'Server error' }); }
+});
+
+// GET /api/testimonials/admin — admin: ALL testimonials (pending + approved),
+// for moderation. Same pattern as routes/blog.js's GET /admin. Registered
+// above any '/:id'-shaped route on purpose — there isn't one currently, but
+// keeping the ordering discipline consistent avoids Express ever matching
+// "admin" as an :id param if one gets added later.
+router.get('/admin', auth, requireRole('editor'), async (req, res) => {
+  try {
+    const t = await Testimonial.find().sort({ createdAt: -1 });
+    res.json(t);
+  } catch (err) { res.status(500).json({ error: 'Server error' }); }
+});
+
+// POST /api/testimonials/submit — public visitor submission.
+//
+// Hardening notes (fixed this session — the previously restored version of
+// this route was weaker than it should be):
+//  - name/role/text are all explicitly required at the route level, with a
+//    clean 400 message, rather than letting a missing `role` fall through
+//    to a raw Mongoose validation error.
+//  - Explicit length caps on name/role/company/text so a public,
+//    unauthenticated endpoint can't be used to write arbitrarily large
+//    documents into the DB (the only other limit is the global 1mb JSON
+//    body cap in server.js, which is far too generous for a single review).
+//  - `rating` is parsed and clamped to 1-5 server-side — an invalid,
+//    missing, or out-of-range value silently falls back to a safe default
+//    (5) rather than either rejecting the whole submission or trusting
+//    unvalidated client input straight into the schema.
+//  - approved/featured are FORCED false server-side regardless of what's
+//    in the request body — a crafted payload trying to set approved:true
+//    directly is ignored. Also rate-limited in server.js (5/hour/IP) as a
+//    second layer against spam.
+router.post('/submit', async (req, res) => {
+  try {
+    const { name, role, company, text, rating, initials } = req.body;
+
+    if (!name || !role || !text) {
+      return res.status(400).json({ error: 'name, role, and text are required' });
+    }
+    if (String(name).length > 200 || String(role).length > 200) {
+      return res.status(400).json({ error: 'name and role must be 200 characters or fewer' });
+    }
+    if (String(text).length > 2000) {
+      return res.status(400).json({ error: 'text must be 2000 characters or fewer' });
+    }
+
+    const numericRating = parseInt(rating, 10);
+    const safeRating = (numericRating >= 1 && numericRating <= 5) ? numericRating : 5;
+
+    const testimonial = await Testimonial.create({
+      name: String(name).trim(),
+      role: String(role).trim(),
+      company: company ? String(company).trim().slice(0, 200) : '',
+      text: String(text).trim(),
+      rating: safeRating,
+      initials: initials ? String(initials).trim().slice(0, 3) : '',
+      approved: false, // forced — never trust client input for this
+      featured: false, // forced — never trust client input for this
+    });
+
+    // Deliberately not returning the created document (it's unapproved,
+    // not yet public) — just a confirmation message.
+    res.status(201).json({
+      success: true,
+      message: 'Thank you! Your review has been submitted and will appear once approved.',
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 router.post('/', auth, requireRole('editor'), async (req, res) => {

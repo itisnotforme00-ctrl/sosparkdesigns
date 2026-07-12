@@ -1,13 +1,14 @@
 require('dotenv').config();
-const dns            = require('dns');
-const express        = require('express');
-const mongoose       = require('mongoose');
-const cors           = require('cors');
-const path           = require('path');
-const helmet         = require('helmet');
-const rateLimit      = require('express-rate-limit');
+const dns             = require('dns');
+const express         = require('express');
+const mongoose        = require('mongoose');
+const cors            = require('cors');
+const path            = require('path');
+const helmet          = require('helmet');
+const rateLimit       = require('express-rate-limit');
 const analyticsLogger = require('./middleware/analyticsLogger'); // feature 2 — server-side visitor analytics
-const { ErrorLog }   = require('./models'); // feature 1 — error logging for the monitoring dashboard
+const { UPLOAD_DIR }  = require('./middleware/upload'); // also ensures the upload dir exists at boot
+const { ErrorLog, Portfolio } = require('./models'); // feature 1 — error logging for the monitoring dashboard
 
 // ── DNS override ──
 // Required on this deployment's network: the standard mongodb+srv://
@@ -22,7 +23,24 @@ const { ErrorLog }   = require('./models'); // feature 1 — error logging for t
 dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 const app = express();
-
+// ── Trust proxy ──
+// REQUIRED for express-rate-limit (and any other IP-based logic) to see the
+// real client IP instead of a reverse proxy's IP, if this app is deployed
+// behind one (Nginx, a load balancer, Cloudflare, Render/Heroku's router,
+// etc). Without this, EVERY rate limiter in this file silently either
+// throttles all visitors as a single IP, or breaks outright — including the
+// login brute-force limiter below, which defeats its whole purpose.
+//
+// Deliberately NOT set to `true` unconditionally — that trusts the
+// left-most X-Forwarded-For hop unconditionally, which is spoofable by the
+// client itself if there's no proxy actually in front of the app. Set
+// TRUST_PROXY_HOPS in .env to the exact number of proxies you have in front
+// of this app (usually 1). Defaults to not trusting any proxy, which is the
+// safe default for direct/local deployment.
+const trustProxyHops = parseInt(process.env.TRUST_PROXY_HOPS, 10);
+if (!Number.isNaN(trustProxyHops) && trustProxyHops > 0) {
+  app.set('trust proxy', trustProxyHops);
+}
 // ── B4: Env-var validation on boot ──
 // The root cause documented in the project brief (a placeholder MONGODB_URI
 // silently breaking login for hours) happened because nothing checked env
@@ -58,6 +76,9 @@ function checkEnvPlaceholders() {
   if (!process.env.API_KEY_ENCRYPTION_SECRET) {
     issues.push('API_KEY_ENCRYPTION_SECRET is not set — the API key pool (admin panel) is falling back to JWT_SECRET (or an insecure default) to encrypt stored provider keys. Set a dedicated secret for production.');
   }
+  if (Number.isNaN(trustProxyHops) || trustProxyHops <= 0) {
+    issues.push('TRUST_PROXY_HOPS is not set — if this app runs behind any reverse proxy/load balancer, rate limiting will not see real client IPs. Set TRUST_PROXY_HOPS to the number of proxies in front of this app (usually 1) if applicable.');
+  }
 
   return issues;
 }
@@ -76,9 +97,34 @@ app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false 
 app.use('/api/', rateLimit({ windowMs: 15 * 60 * 1000, max: 200, standardHeaders: true, legacyHeaders: false }));
 app.use('/api/chat', rateLimit({ windowMs: 60 * 1000, max: 60 }));
 
+// Dedicated, much tighter limiter for login — the generic 200/15min limit
+// above is shared across ALL API traffic and is nowhere near strict enough
+// to stop credential-stuffing against admin accounts on its own.
+app.use('/api/auth/login', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts. Try again later.' },
+}));
+
+// Public write endpoints — spam-prone in a way GET endpoints aren't.
+app.use('/api/testimonials/submit', rateLimit({ windowMs: 60 * 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false }));
+app.use('/api/contact', rateLimit({ windowMs: 60 * 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false }));
+
+// Video uploads are expensive (disk + bandwidth) even from a trusted admin
+// session — worth throttling independent of the role check itself.
+app.use('/api/videos/upload', rateLimit({ windowMs: 60 * 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false }));
+
 // ── Middleware ──
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
-app.use(express.json({ limit: '10kb' }));
+// Raised from the previous 10kb: that limit only left room for roughly
+// 150-175 pasted API keys before B6's own "bulk-add large batches" feature
+// started rejecting legitimate requests with an opaque 413. 1mb comfortably
+// covers thousands of keys or a long-form blog post; actual video files
+// never pass through this parser at all (multer reads multipart/form-data
+// directly, off the request stream, bypassing express.json entirely).
+app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // ── Visitor analytics (feature 2) ──
@@ -89,9 +135,26 @@ app.use(express.urlencoded({ extended: true }));
 // frontend/ changes).
 app.use(analyticsLogger);
 
+// ── SEO: clean URLs, no .html extension in the address bar ──
+app.get(/^\/([^/.]+)\.html$/, (req, res) => {
+  const name = req.params[0];
+  const clean = name === 'index' ? '/' : `/${name}`;
+  const queryIndex = req.url.indexOf('?');
+  const query = queryIndex !== -1 ? req.url.slice(queryIndex) : '';
+  res.redirect(301, clean + query);
+});
 // ── Static files ──
-app.use(express.static(path.join(__dirname, '../frontend')));
+app.use(express.static(path.join(__dirname, '../frontend'), { extensions: ['html'], index: 'index.html' }));
 app.use('/admin', express.static(path.join(__dirname, '../admin')));
+
+// ── Uploaded video files ──
+// express.static (via the underlying 'send' module) already supports HTTP
+// Range requests out of the box, so video scrubbing/seeking works with no
+// extra streaming code here. Only files that exist on disk under UPLOAD_DIR
+// are servable — there's no directory listing, and filenames are always the
+// server-generated random names from middleware/upload.js, never
+// user-supplied paths.
+app.use('/uploads/videos', express.static(UPLOAD_DIR));
 
 // ── MongoDB with retry + IPv4 fallback ──
 const MONGO_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/sosparkdesign';
@@ -120,6 +183,35 @@ async function connectMongo(retries = 4, delay = 1500) {
 
 connectMongo();
 
+// ── SEO: sitemap.xml + robots.txt ──
+const SITE_URL = (process.env.SITE_URL || `http://localhost:${process.env.PORT || 3000}`).replace(/\/$/, '');
+
+const STATIC_PAGES = ['/', '/about', '/services', '/portfolio', '/team', '/faq', '/reviews', '/contact'];
+
+app.get('/sitemap.xml', async (req, res) => {
+  try {
+    const staticUrls = STATIC_PAGES.map(p => `  <url><loc>${SITE_URL}${p}</loc></url>`).join('\n');
+
+    let portfolioUrls = '';
+    if (mongoose.connection.readyState === 1) {
+      const projects = await Portfolio.find().select('slug updatedAt').lean();
+      portfolioUrls = projects
+        .map(p => `  <url><loc>${SITE_URL}/portfolio/${p.slug}</loc><lastmod>${p.updatedAt.toISOString().slice(0,10)}</lastmod></url>`)
+        .join('\n');
+    }
+
+    res.set('Content-Type', 'application/xml');
+    res.send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${staticUrls}\n${portfolioUrls}\n</urlset>`);
+  } catch (err) {
+    res.status(500).send('Error generating sitemap');
+  }
+});
+
+app.get('/robots.txt', (req, res) => {
+  res.set('Content-Type', 'text/plain');
+  res.send(`User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /api/\n\nSitemap: ${SITE_URL}/sitemap.xml\n`);
+});
+
 // ── DB status endpoint (for admin panel diagnostics) ──
 app.get('/api/health', (req, res) => {
   const state = mongoose.connection.readyState;
@@ -137,6 +229,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/chat',         require('./routes/chat'));
 app.use('/api/contact',      require('./routes/contact'));
 app.use('/api/portfolio',    require('./routes/portfolio'));
+app.use('/api/blog',         require('./routes/blog'));
 app.use('/api/services',     require('./routes/services'));
 app.use('/api/team',         require('./routes/team'));
 app.use('/api/testimonials', require('./routes/testimonials'));
@@ -147,6 +240,7 @@ app.use('/api/apikeys',      require('./routes/apikeys'));    // B6 — admin-on
 app.use('/api/analytics',    require('./routes/analytics'));  // feature 2 — visitor analytics + dashboard stats
 app.use('/api/settings',     require('./routes/settings'));   // feature 1 — editable content/config without redeploy
 app.use('/api/admins',       require('./routes/admins'));     // feature 4 — multi-admin & role management
+app.use('/api/videos',       require('./routes/videos'));     // new — server-stored + YouTube-linked videos
 
 // ── SPA catch-alls ──
 app.get('/admin/*', (req, res) => res.sendFile(path.join(__dirname, '../admin/dashboard.html')));

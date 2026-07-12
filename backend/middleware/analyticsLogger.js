@@ -35,9 +35,13 @@ function getOrSetVisitorId(req, res) {
   const vid = crypto.randomUUID();
   const oneYear = 60 * 60 * 24 * 365;
   res.setHeader('Set-Cookie', `${VISITOR_COOKIE}=${vid}; Path=/; Max-Age=${oneYear}; SameSite=Lax`);
+  // HttpOnly: not needed by any client-side JS, so keep it out of reach of
+  // an XSS payload. Secure: only sent over HTTPS in production — omitted in
+  // dev so plain http://localhost testing still works.
+  const secureFlag = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  res.setHeader('Set-Cookie', `${VISITOR_COOKIE}=${vid}; Path=/; Max-Age=${oneYear}; SameSite=Lax; HttpOnly${secureFlag}`);
   return vid;
 }
-
 function classifyReferrer(referrerRaw, requestHost) {
   if (!referrerRaw) return 'direct';
   let host;
@@ -113,5 +117,4 @@ function analyticsLogger(req, res, next) {
 
   next();
 }
-
 module.exports = analyticsLogger;

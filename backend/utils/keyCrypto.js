@@ -50,5 +50,5 @@ function decrypt(payload) {
   const plaintext = Buffer.concat([decipher.update(Buffer.from(dataHex, 'hex')), decipher.final()]);
   return plaintext.toString('utf8');
 }
-
+module.exports = { encrypt, decrypt };
 module.exports = { encrypt, decrypt };

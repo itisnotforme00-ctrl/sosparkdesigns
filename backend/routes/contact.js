@@ -4,7 +4,15 @@ const auth    = require('../middleware/auth');
 const { requireRole } = require('../middleware/permissions');
 const { Contact } = require('../models');
 
-// POST /api/contact — submit form
+// POST /api/contact — submit form. Public, unauthenticated.
+//
+// Hardening note (added this session): explicit length caps on every
+// free-text field. Previously only `email` had any shape validation — name,
+// company, service, budget, and message could each be arbitrarily long
+// (bounded only by the global 1mb JSON body limit in server.js, which is
+// far too generous for a contact form). A public write endpoint with no
+// per-field limits is an easy vector for storage-bloat abuse even without
+// malicious intent (e.g. a broken client retry-looping a huge payload).
 router.post('/', async (req, res) => {
   try {
     const { name, email, company, service, budget, message } = req.body;
@@ -18,7 +26,33 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Invalid email address' });
     }
 
-    const contact = await Contact.create({ name, email, company, service, budget, message });
+    if (String(name).length > 200) {
+      return res.status(400).json({ error: 'name must be 200 characters or fewer' });
+    }
+    if (String(email).length > 320) { // 320 = the theoretical max valid email length (RFC 5321)
+      return res.status(400).json({ error: 'email must be 320 characters or fewer' });
+    }
+    if (String(message).length > 5000) {
+      return res.status(400).json({ error: 'message must be 5000 characters or fewer' });
+    }
+    if (company && String(company).length > 200) {
+      return res.status(400).json({ error: 'company must be 200 characters or fewer' });
+    }
+    if (service && String(service).length > 200) {
+      return res.status(400).json({ error: 'service must be 200 characters or fewer' });
+    }
+    if (budget && String(budget).length > 100) {
+      return res.status(400).json({ error: 'budget must be 100 characters or fewer' });
+    }
+
+    const contact = await Contact.create({
+      name: String(name).trim(),
+      email: String(email).trim(),
+      company: company ? String(company).trim() : '',
+      service: service ? String(service).trim() : '',
+      budget: budget ? String(budget).trim() : '',
+      message: String(message).trim(),
+    });
     res.status(201).json({ success: true, id: contact._id });
   } catch (err) {
     console.error(err);

@@ -621,6 +621,8 @@ function portfolioModal(id, d={}) {
     <div class="adm-field"><label class="adm-label">Client</label><input class="adm-input" id="f-client" value="${esc(d.client||'')}" /></div>
     <div class="adm-field"><label class="adm-label">Year</label><input class="adm-input" type="number" id="f-year" value="${d.year||new Date().getFullYear()}" /></div>
     <div class="adm-field"><label class="adm-label">Description *</label><textarea class="adm-textarea" id="f-desc">${esc(d.description||'')}</textarea></div>
+    <div class="adm-field"><label class="adm-label">Cover Image URL</label><input class="adm-input" id="f-cover" value="${esc(d.coverImage||'')}" placeholder="https://.../image.jpg" /></div>
+    <div class="adm-field"><label class="adm-label">Additional Images (comma-separated URLs)</label><input class="adm-input" id="f-images" value="${(d.images||[]).join(', ')}" placeholder="https://.../1.jpg, https://.../2.jpg" /></div>
     <div class="adm-field"><label class="adm-label">Tags (comma separated)</label><input class="adm-input" id="f-tags" value="${(d.tags||[]).join(', ')}" /></div>
     <div class="adm-field" style="flex-direction:row;align-items:center;gap:8px;">
       <input type="checkbox" id="f-featured" ${d.featured?'checked':''} style="width:16px;height:16px;" />
@@ -629,6 +631,8 @@ function portfolioModal(id, d={}) {
   `, async () => {
     const payload = { title:v('f-title'), slug:v('f-slug'), category:v('f-cat'), client:v('f-client'),
       year:parseInt(v('f-year'))||new Date().getFullYear(), description:v('f-desc'),
+      coverImage:v('f-cover'),
+      images:v('f-images').split(',').map(t=>t.trim()).filter(Boolean),
       featured:document.getElementById('f-featured').checked,
       tags:v('f-tags').split(',').map(t=>t.trim()).filter(Boolean) };
     try {
@@ -697,7 +701,7 @@ async function renderTestimonials() {
   const dbOk = await checkDB();
   if (!dbOk) { content.innerHTML = dbBanner(); return; }
   try {
-    const items = await api('/testimonials');
+    const items = await api('/testimonials/admin'); // sees unapproved too, unlike the public endpoint
     content.innerHTML = `
       <div class="adm-card">
         <div class="adm-card__header">
@@ -705,23 +709,34 @@ async function renderTestimonials() {
           <button class="adm-btn-add" id="add-t">+ Add</button>
         </div>
         <table>
-          <thead><tr><th>Name</th><th>Role</th><th>Rating</th><th>Featured</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Name</th><th>Role</th><th>Rating</th><th>Status</th><th>Featured</th><th>Actions</th></tr></thead>
           <tbody>${items.length ? items.map(t=>`<tr>
             <td class="td-main">${esc(t.name)}</td>
             <td>${esc(t.role)}</td>
             <td>${'★'.repeat(t.rating||5)}</td>
+            <td><span class="badge ${t.approved?'badge--green':'badge--coral'}">${t.approved?'Approved':'Pending'}</span></td>
             <td>${t.featured?'✓':'—'}</td>
             <td><div class="row-actions">
-              <button class="btn-edit" data-id="${t._id}">Edit</button>
+              <button class="btn-edit" data-id="${t._id}" data-approve="${!t.approved}">${t.approved?'Unapprove':'Approve'}</button>
+              <button class="btn-edit" data-id="${t._id}" data-editopen="true">Edit</button>
               <button class="btn-del"  data-id="${t._id}">Delete</button>
             </div></td>
-          </tr>`).join('') : '<tr><td colspan="5"><div class="adm-empty">No testimonials</div></td></tr>'}</tbody>
+          </tr>`).join('') : '<tr><td colspan="6"><div class="adm-empty">No testimonials</div></td></tr>'}</tbody>
         </table>
       </div>`;
     document.getElementById('add-t')?.addEventListener('click', () => testimonialModal(null));
-    content.querySelectorAll('.btn-edit').forEach(b => b.addEventListener('click', () => testimonialModal(b.dataset.id, items.find(x=>x._id===b.dataset.id))));
+    // Quick approve/unapprove toggle — one click, no need to open the full edit modal
+    content.querySelectorAll('.btn-edit[data-approve]').forEach(b => b.addEventListener('click', async () => {
+      try {
+        const approve = b.dataset.approve === 'true';
+        await api('/testimonials/'+b.dataset.id, { method:'PUT', body: JSON.stringify({ approved: approve }) });
+        toast(approve ? 'Approved' : 'Unapproved');
+        renderTestimonials();
+      } catch(e) { toast(e.message,'error'); }
+    }));
+    content.querySelectorAll('.btn-edit[data-editopen]').forEach(b => b.addEventListener('click', () => testimonialModal(b.dataset.id, items.find(x=>x._id===b.dataset.id))));
     content.querySelectorAll('.btn-del').forEach(b  => b.addEventListener('click', () => del('/testimonials/'+b.dataset.id, renderTestimonials)));
-  } catch(e) { content.innerHTML = dbBanner(); }
+  } catch(e) { content.innerHTML = `<div class="adm-alert adm-alert--error">⚠️ ${esc(e.message)}</div>`; }
 }
 
 function testimonialModal(id, d={}) {
@@ -733,12 +748,18 @@ function testimonialModal(id, d={}) {
     <div class="adm-field"><label class="adm-label">Rating (1–5)</label><input class="adm-input" type="number" id="f-rating" min="1" max="5" value="${d.rating||5}" /></div>
     <div class="adm-field"><label class="adm-label">Text *</label><textarea class="adm-textarea" id="f-text">${esc(d.text||'')}</textarea></div>
     <div class="adm-field" style="flex-direction:row;align-items:center;gap:8px;">
+      <input type="checkbox" id="f-approved" ${d.approved !== false ? 'checked' : ''} style="width:16px;height:16px;" />
+      <label class="adm-label" for="f-approved" style="text-transform:none;font-size:13px;margin:0">Approved (visible on public site)</label>
+    </div>
+    <div class="adm-field" style="flex-direction:row;align-items:center;gap:8px;">
       <input type="checkbox" id="f-feat" ${d.featured?'checked':''} style="width:16px;height:16px;" />
       <label class="adm-label" for="f-feat" style="text-transform:none;font-size:13px;margin:0">Featured</label>
     </div>
   `, async () => {
     const payload = { name:v('f-name'),role:v('f-role'),company:v('f-co'),initials:v('f-init'),
-      rating:parseInt(v('f-rating'))||5, text:v('f-text'), featured:document.getElementById('f-feat').checked };
+      rating:parseInt(v('f-rating'))||5, text:v('f-text'),
+      approved:document.getElementById('f-approved').checked,
+      featured:document.getElementById('f-feat').checked };
     try {
       id ? await api('/testimonials/'+id,{method:'PUT', body:JSON.stringify(payload)})
           : await api('/testimonials',   {method:'POST',body:JSON.stringify(payload)});
@@ -900,9 +921,10 @@ function teamModal(id, d={}) {
     <div class="adm-field"><label class="adm-label">Name *</label><input class="adm-input" id="f-name" value="${esc(d.name||'')}" /></div>
     <div class="adm-field"><label class="adm-label">Role *</label><input class="adm-input" id="f-role" value="${esc(d.role||'')}" /></div>
     <div class="adm-field"><label class="adm-label">Bio *</label><textarea class="adm-textarea" id="f-bio">${esc(d.bio||'')}</textarea></div>
+    <div class="adm-field"><label class="adm-label">Photo URL</label><input class="adm-input" id="f-photo" value="${esc(d.photo||'')}" placeholder="https://.../photo.jpg" /></div>
     <div class="adm-field"><label class="adm-label">Order</label><input class="adm-input" type="number" id="f-ord" value="${d.order||0}" /></div>
   `, async () => {
-    const payload = { name:v('f-name'),role:v('f-role'),bio:v('f-bio'),order:parseInt(v('f-ord'))||0 };
+    const payload = { name:v('f-name'),role:v('f-role'),bio:v('f-bio'),photo:v('f-photo'),order:parseInt(v('f-ord'))||0 };
     try {
       id ? await api('/team/'+id,{method:'PUT', body:JSON.stringify(payload)})
           : await api('/team',   {method:'POST',body:JSON.stringify(payload)});

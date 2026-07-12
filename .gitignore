@@ -6,6 +6,10 @@
 # Dependencies
 node_modules/
 
+# Uploaded video files — real user/site content living on disk, not source
+# code. Must never be committed.
+backend/uploads/
+
 # Logs
 npm-debug.log*
 *.log

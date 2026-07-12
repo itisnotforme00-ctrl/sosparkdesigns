@@ -280,6 +280,8 @@
   .rail-timeline { padding-left: var(--sp-10); }
   .rail-item__year { font-size: var(--text-3xl); }
 }
+.tl2-item__title { font-family: var(--font-display); font-size: var(--text-xl); font-weight: 700; color: var(--ink); letter-spacing: -0.02em; margin-bottom: var(--sp-3); }
+.tl2-item__desc { font-size: var(--text-sm); color: var(--ink-light); line-height: 1.7; }
 
 /* ══════════ ABOUT CTA ══════════ */
 .about-cta { padding-block: var(--section-gap); background: var(--cream-2); position: relative; overflow: hidden; }
