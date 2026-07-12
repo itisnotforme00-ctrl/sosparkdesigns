@@ -3,17 +3,29 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Client reviews and testimonials for SoSpark Design — a full-service creative agency." />
-  <meta property="og:title" content="Reviews — SoSpark Design" />
+  <meta name="description" content="Client reviews and testimonials for SoSpark Design, a full-service creative agency." />
+  <meta property="og:title" content="Reviews | SoSpark Design" />
+  <meta property="og:description" content="Client reviews and testimonials for SoSpark Design, a full-service creative agency." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="https://sosparkdesign.com/assets/og-image.png" />
+  <meta property="og:url" content="https://sosparkdesign.com/reviews.html" />
+  <meta name="twitter:card" content="summary_large_image" />
   <meta name="theme-color" content="#FAFAF7" />
-  <title>Reviews — SoSpark Design</title>
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png" />
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+  <title>Reviews | SoSpark Design</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="css/variables.css" />
   <link rel="stylesheet" href="css/global.css" />
   <link rel="stylesheet" href="css/nav.css" />
   <link rel="stylesheet" href="css/footer.css" />
+  <link rel="stylesheet" href="css/margin-rail.css" />
   <link rel="stylesheet" href="css/pages.css" />
+  <link rel="stylesheet" href="css/detail-modal.css" />
+  <link rel="stylesheet" href="css/review-form.css" />
   <link rel="canonical" href="https://sosparkdesign.com/reviews.html" />
 </head>
 <body>
@@ -21,7 +33,7 @@
 <header role="banner">
   <nav class="nav" aria-label="Main navigation">
     <div class="nav__inner">
-      <a href="index.html" class="nav__logo" aria-label="SoSpark Design — Home"><img src="assets/logo-dark.svg" alt="SoSpark Design" class="nav__logo-img" /></a>
+      <a href="index.html" class="nav__logo" aria-label="SoSpark Design, Home"><img src="assets/logo-dark.svg" alt="SoSpark Design" class="nav__logo-img" /></a>
       <ul class="nav__links" role="list">
         <li><a href="index.html"     class="nav__link">Home</a></li>
         <li><a href="about.html"     class="nav__link">About</a></li>
@@ -60,6 +72,10 @@
 
   <section class="reviews-page-grid">
     <div class="container">
+      <div class="reviews-toolbar reveal">
+        <p class="reviews-toolbar__count">Showing 12 of 48+ reviews</p>
+        <button type="button" class="btn-primary reviews-toolbar__cta" id="open-review-form">Write a Review</button>
+      </div>
       <div class="reviews-masonry">
         <div class="review-tile" data-cinematic="up"><div class="review-tile__stars">★★★★★</div><p class="review-tile__text">"SoSpark completely transformed our brand identity. The work was sharp, strategic, and delivered ahead of schedule. Our engagement doubled within a month."</p><div class="review-tile__author"><div class="review-tile__avatar">RH</div><div><div class="review-tile__name">Rachel Hume</div><div class="review-tile__role">Founder, Hume Collective</div></div></div></div>
 
@@ -69,11 +85,11 @@
 
         <div class="review-tile" data-cinematic="right"><div class="review-tile__stars">★★★★★</div><p class="review-tile__text">"Our product videos went from amateur to cinematic. The editing is tight and the pacing is perfect."</p><div class="review-tile__author"><div class="review-tile__avatar">TM</div><div><div class="review-tile__name">Tom Mercer</div><div class="review-tile__role">Product Lead, Arcform</div></div></div></div>
 
-        <div class="review-tile" data-cinematic="up"><div class="review-tile__stars">★★★★★</div><p class="review-tile__text">"Working with SoSpark is like having a full creative department on speed dial. Fast communication, zero revisions needed — they just get it right first time."</p><div class="review-tile__author"><div class="review-tile__avatar">SC</div><div><div class="review-tile__name">Sofia Chen</div><div class="review-tile__role">Marketing Manager, Vela Digital</div></div></div></div>
+        <div class="review-tile" data-cinematic="up"><div class="review-tile__stars">★★★★★</div><p class="review-tile__text">"Working with SoSpark is like having a full creative department on speed dial. Fast communication, zero revisions needed. They just get it right first time."</p><div class="review-tile__author"><div class="review-tile__avatar">SC</div><div><div class="review-tile__name">Sofia Chen</div><div class="review-tile__role">Marketing Manager, Vela Digital</div></div></div></div>
 
         <div class="review-tile" data-cinematic="scale"><div class="review-tile__stars">★★★★★</div><p class="review-tile__text">"Our social pages went from chaotic to cohesive overnight. The page management service is the best investment we've made this year."</p><div class="review-tile__author"><div class="review-tile__avatar">JO</div><div><div class="review-tile__name">James Okafor</div><div class="review-tile__role">Owner, Okafor Eats</div></div></div></div>
 
-        <div class="review-tile" data-cinematic="left"><div class="review-tile__stars">★★★★★</div><p class="review-tile__text">"From brand strategy to the finished website — SoSpark handled everything seamlessly. I didn't have to worry once."</p><div class="review-tile__author"><div class="review-tile__avatar">AL</div><div><div class="review-tile__name">Aisha Laurent</div><div class="review-tile__role">CEO, Laurent Studio</div></div></div></div>
+        <div class="review-tile" data-cinematic="left"><div class="review-tile__stars">★★★★★</div><p class="review-tile__text">"From brand strategy to the finished website, SoSpark handled everything seamlessly. I didn't have to worry once."</p><div class="review-tile__author"><div class="review-tile__avatar">AL</div><div><div class="review-tile__name">Aisha Laurent</div><div class="review-tile__role">CEO, Laurent Studio</div></div></div></div>
 
         <div class="review-tile" data-cinematic="right"><div class="review-tile__stars">★★★★★</div><p class="review-tile__text">"The branding work elevated our entire positioning. We went from looking like a startup to looking like an established player overnight."</p><div class="review-tile__author"><div class="review-tile__avatar">BK</div><div><div class="review-tile__name">Ben Kurtz</div><div class="review-tile__role">Co-founder, Meridian</div></div></div></div>
 
@@ -158,9 +174,63 @@
   </div>
 </footer>
 
+  <div class="review-modal" id="review-modal" hidden>
+    <div class="review-modal__backdrop" data-review-close></div>
+    <div class="review-modal__panel" role="dialog" aria-modal="true" aria-labelledby="review-modal-title">
+      <button class="review-modal__close" data-review-close aria-label="Close">&times;</button>
+
+      <form id="review-form" novalidate>
+        <h2 class="review-modal__title" id="review-modal-title">Write a Review</h2>
+        <p class="review-modal__sub">Tell other visitors about your experience. Reviews are checked before they go live, so it may take a day or two to appear.</p>
+
+        <div class="review-form__field">
+          <label class="review-form__label" for="rv-name">Your Name *</label>
+          <input type="text" id="rv-name" class="review-form__input" placeholder="Jane Doe" required />
+        </div>
+        <div class="review-form__row">
+          <div class="review-form__field">
+            <label class="review-form__label" for="rv-role">Role</label>
+            <input type="text" id="rv-role" class="review-form__input" placeholder="Founder" />
+          </div>
+          <div class="review-form__field">
+            <label class="review-form__label" for="rv-company">Company</label>
+            <input type="text" id="rv-company" class="review-form__input" placeholder="Your company" />
+          </div>
+        </div>
+
+        <div class="review-form__field">
+          <label class="review-form__label">Rating *</label>
+          <div class="review-form__stars" id="rv-stars" role="radiogroup" aria-label="Star rating">
+            <button type="button" class="review-form__star" data-value="1" role="radio" aria-checked="false" aria-label="1 star">★</button>
+            <button type="button" class="review-form__star" data-value="2" role="radio" aria-checked="false" aria-label="2 stars">★</button>
+            <button type="button" class="review-form__star" data-value="3" role="radio" aria-checked="false" aria-label="3 stars">★</button>
+            <button type="button" class="review-form__star" data-value="4" role="radio" aria-checked="false" aria-label="4 stars">★</button>
+            <button type="button" class="review-form__star" data-value="5" role="radio" aria-checked="false" aria-label="5 stars">★</button>
+          </div>
+        </div>
+
+        <div class="review-form__field">
+          <label class="review-form__label" for="rv-text">Your Review *</label>
+          <textarea id="rv-text" class="review-form__textarea" placeholder="What was it like working with SoSpark?" required></textarea>
+        </div>
+
+        <button type="submit" class="btn-primary review-form__submit" id="review-submit-btn">Submit Review</button>
+        <div class="review-form__error" id="review-form-error" role="alert"></div>
+      </form>
+
+      <div class="review-modal__success" id="review-modal-success">
+        <div class="review-modal__success-icon" aria-hidden="true">&#10003;</div>
+        <h3 class="review-modal__success-title">Thanks for sharing!</h3>
+        <p class="review-modal__success-text">Your review has been submitted and will appear on this page once it's been checked.</p>
+      </div>
+    </div>
+  </div>
+
 <script src="js/cursor.js"></script>
 <script src="js/nav.js"></script>
 <script src="js/animations.js"></script>
+<script src="js/margin-rail.js"></script>
 <script src="js/ai-chat.js"></script>
+<script src="js/review-form.js"></script>
 </body>
 </html>
